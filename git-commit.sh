@@ -15,8 +15,5 @@ git add .
 # Commit the changes with the provided message
 git commit -m "$commit_message"
 
-# Push the changes to the remote repository
-git push
-
 # Confirm success
-echo "Changes committed and pushed successfully!"
+echo "Changes committed successfully!"
