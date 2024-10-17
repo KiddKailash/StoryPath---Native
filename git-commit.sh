@@ -15,5 +15,13 @@ git add .
 # Commit the changes with the provided message
 git commit -m "$commit_message"
 
+# Push the changes to the origin repository
+echo "Pushing changes to origin..."
+git push origin
+
+# Pull the latest changes from the origin repository
+echo "Pulling the latest changes to ensure everything is up-to-date..."
+git pull origin
+
 # Confirm success
-echo "Changes committed successfully!"
+echo "Changes committed, pushed, and repository updated successfully!"
