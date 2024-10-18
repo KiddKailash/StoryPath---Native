@@ -36,7 +36,7 @@ export default function ProjectsList() {
   // Function to navigate to project details or screens
   const navigateToProject = (projectId) => {
     // Adjust the route according to your app's routing structure
-    router.push(`/project/${projectId}/home`);
+    router.push(`/(tabs)/${projectId}/home`);
   };
 
   if (loading) {
@@ -59,8 +59,8 @@ export default function ProjectsList() {
             style={styles.projectItem}
             onPress={() => navigateToProject(item.id)}
           >
-            <Text style={styles.title}>{item.project_title}</Text>
-            <Text style={styles.description}>{item.project_description}</Text>
+            <Text style={styles.title}>{item.title}</Text>
+            <Text style={styles.description}>{item.description}</Text>
           </TouchableOpacity>
         )}
         ListEmptyComponent={<Text>No projects available.</Text>}
