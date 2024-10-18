@@ -1,15 +1,12 @@
-// HomeScreen.jsx
-
 import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   ActivityIndicator,
-  Button,
   ScrollView,
   StyleSheet,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { getProjectById } from "../../../api/project-crud-commands";
 import { getLocationsByProjectID } from "../../../api/location-crud-commands";
 
