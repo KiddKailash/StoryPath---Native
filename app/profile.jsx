@@ -105,6 +105,39 @@ export default function Profile() {
     }
   };
 
+  const deleteProfileData = async () => {
+    // Confirm with the user before deleting
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to delete your account information? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Remove data from AsyncStorage
+              await AsyncStorage.removeItem('username');
+              await AsyncStorage.removeItem('imageUri');
+
+              // Reset state variables
+              setUsername('');
+              setImageUri(null);
+              setParticipantData([]);
+              setParticipantProjectsCount(0);
+
+              Alert.alert('Account Deleted', 'Your account information has been deleted.');
+            } catch (error) {
+              console.error('Error deleting profile data:', error);
+              Alert.alert('Error', 'Failed to delete account information.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Profile</Text>
@@ -130,6 +163,17 @@ export default function Profile() {
 
       {/* Save Button */}
       <Button title="Save Profile" onPress={saveProfileData} />
+
+      {/* Delete Account Button */}
+      {username ? (
+        <View style={styles.deleteButtonContainer}>
+          <Button
+            title="Delete Account"
+            onPress={deleteProfileData}
+            color="red"
+          />
+        </View>
+      ) : null}
 
       {/* Display Participant Data */}
       {participantProjectsCount > 0 && (
@@ -183,6 +227,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 8,
     marginBottom: 16,
+  },
+  deleteButtonContainer: {
+    marginTop: 16,
   },
   participantDataContainer: {
     marginTop: 24,

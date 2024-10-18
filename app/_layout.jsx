@@ -1,18 +1,8 @@
 // _layout.jsx
 
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-} from 'react-native';
+import React from 'react';
 import { Drawer } from 'expo-router/drawer';
-import {
-  DrawerContentScrollView,
-  DrawerItem,
-} from '@react-navigation/drawer';
+import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
 import {
   Ionicons,
   Entypo,
@@ -20,6 +10,9 @@ import {
   FontAwesome6,
 } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
+import { Text, Image, StyleSheet } from 'react-native';
+
+// Import AsyncStorage and useDrawerStatus
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDrawerStatus } from '@react-navigation/drawer';
 
@@ -53,10 +46,10 @@ const DrawerItemComponent = ({
   );
 };
 
-const CustomDrawerContent = (props) => {
+const ProfileDrawerItem = () => {
   const router = useRouter();
-  const [username, setUsername] = useState(null);
-  const [imageUri, setImageUri] = useState(null);
+  const [username, setUsername] = React.useState(null);
+  const [imageUri, setImageUri] = React.useState(null);
 
   const isDrawerOpen = useDrawerStatus();
 
@@ -71,40 +64,46 @@ const CustomDrawerContent = (props) => {
     }
   };
 
-  useEffect(() => {
-    // Load profile data when the component mounts
+  React.useEffect(() => {
     loadProfileData();
   }, []);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isDrawerOpen === 'open') {
-      // Reload profile data when the drawer is opened
       loadProfileData();
     }
   }, [isDrawerOpen]);
 
   return (
+    <DrawerItem
+      icon={({ size }) => {
+        if (username && imageUri) {
+          return (
+            <Image
+              source={{ uri: imageUri }}
+              style={{ width: (size+5), height: (size+5), borderRadius: (size+5) / 2 }}
+            />
+          );
+        } else {
+          return <Ionicons name="person-add" size={size} color="#000" />;
+        }
+      }}
+      label={() => (
+        <Text style={[styles.navItemLabel, { color: '#000' }]}>
+          {username ? username : 'Login'}
+        </Text>
+      )}
+      onPress={() => router.push('/profile')}
+    />
+  );
+};
+
+const CustomDrawerContent = (props) => {
+  return (
     <DrawerContentScrollView {...props}>
-      {/* Profile Section */}
-      <TouchableOpacity
-        style={styles.profileContainer}
-        onPress={() => router.push('/profile')}
-      >
-        {imageUri ? (
-          <Image source={{ uri: imageUri }} style={styles.profileImage} />
-        ) : (
-          <Image
-            source={require('../assets/images/storypath-icon.png')} // Replace with your default image path
-            style={styles.profileImage}
-            size={12}
-          />
-        )}
-        <View style={styles.profileDetails}>
-          <Text style={styles.profileName}>
-            {username ? username : 'No Profile Logged In'}
-          </Text>
-        </View>
-      </TouchableOpacity>
+
+      {/* Profile Drawer Item */}
+      <ProfileDrawerItem />
 
       {/* Drawer Items */}
       <DrawerItemComponent
@@ -113,12 +112,7 @@ const CustomDrawerContent = (props) => {
         IconComponent={Entypo}
         iconName="home"
       />
-      <DrawerItemComponent
-        label="Profile"
-        routeName="/profile"
-        IconComponent={Ionicons}
-        iconName="person-add"
-      />
+
       <DrawerItemComponent
         label="Projects"
         routeName="/projectsList"
@@ -165,25 +159,5 @@ const styles = StyleSheet.create({
   navItemLabel: {
     marginLeft: -20,
     fontSize: 18,
-  },
-  profileContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 24,
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  profileImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#ccc', // Placeholder background color
-  },
-  profileDetails: {
-    marginLeft: 16,
-  },
-  profileName: {
-    fontSize: 18,
-    fontWeight: 'bold',
   },
 });
