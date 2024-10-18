@@ -153,47 +153,6 @@ export default function HomeScreen() {
           Locations Visited: {visitedLocations.length}/{locations.length}
         </Text>
       </View>
-
-      {/* Location Selector */}
-      <View style={styles.selectorContainer}>
-        <Text style={styles.selectorLabel}>{userSelectText}</Text>
-        <Picker
-          selectedValue={selectedLocation ? selectedLocation.id.toString() : ''}
-          onValueChange={handleLocationChange}
-          style={styles.picker}
-        >
-          <Picker.Item label="Select a location..." value="" />
-          {locations.map((location) => (
-            <Picker.Item
-              key={location.id}
-              label={location.location_name}
-              value={location.id.toString()}
-            />
-          ))}
-        </Picker>
-      </View>
-
-      {/* Homescreen Content or Location Details */}
-      {!selectedLocation ? (
-        renderHomescreenContent()
-      ) : (
-        <View style={styles.locationDetails}>
-          <Text style={styles.sectionTitle}>
-            Location: {selectedLocation.location_name || 'Unnamed Location'}
-          </Text>
-          <Text style={styles.sectionContent}>
-            {selectedLocation.clue || 'No clue provided.'}
-          </Text>
-          <Text style={styles.sectionContent}>
-            {selectedLocation.location_content || ''}
-          </Text>
-          <Button
-            title="Back to Homescreen"
-            onPress={resetSelectedLocation}
-            color="#007AFF"
-          />
-        </View>
-      )}
     </ScrollView>
   );
 }

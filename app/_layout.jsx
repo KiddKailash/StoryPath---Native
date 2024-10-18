@@ -69,9 +69,9 @@ const ProfileDrawerItem = () => {
             <Image
               source={{ uri: imageUri }}
               style={{
-                width: size + 5,
-                height: size + 5,
-                borderRadius: (size + 5) / 2,
+                width: size,
+                height: size,
+                borderRadius: (size) / 2,
               }}
             />
           );
@@ -155,5 +155,21 @@ const styles = StyleSheet.create({
   navItemLabel: {
     marginLeft: -20,
     fontSize: 18,
+  },
+  infoContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 10,
+    paddingVertical: 20,
+    borderColor: "#ccc",
+    borderBottomWidth: 1,
+    marginBottom: 10,
+  },
+  infoDetailsContainer: {
+    marginTop: 25,
+    marginLeft: 10,
+  },
+  appTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
   },
 });
