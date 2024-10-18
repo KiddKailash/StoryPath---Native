@@ -1,11 +1,7 @@
-// src/api/fetch-request.js
+import { JWT_TOKEN, USERNAME } from '@env';
 
 // Constants
 const API_BASE_URL = "https://0b5ff8b0.uqcloud.net/api";
-
-// Retrieve JWT_TOKEN and USERNAME from environment variables using Vite's import.meta.env
-const JWT_TOKEN = import.meta.env.VITE_JWT_TOKEN;
-const USERNAME = import.meta.env.VITE_USERNAME;
 
 /**
  * Helper function to handle API requests.
