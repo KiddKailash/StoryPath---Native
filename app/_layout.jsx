@@ -1,27 +1,17 @@
 // _layout.jsx
 
-import React from 'react';
-import { Drawer } from 'expo-router/drawer';
-import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
-import {
-  Ionicons,
-  Entypo,
-  Foundation,
-  FontAwesome6,
-} from '@expo/vector-icons';
-import { useRouter, usePathname } from 'expo-router';
-import { Text, Image, StyleSheet } from 'react-native';
+import React from "react";
+import { Drawer } from "expo-router/drawer";
+import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
+import { Ionicons, Entypo, Foundation, FontAwesome6 } from "@expo/vector-icons";
+import { useRouter, usePathname } from "expo-router";
+import { Text, Image, StyleSheet } from "react-native";
 
 // Import AsyncStorage and useDrawerStatus
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useDrawerStatus } from '@react-navigation/drawer';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useDrawerStatus } from "@react-navigation/drawer";
 
-const DrawerItemComponent = ({
-  label,
-  routeName,
-  IconComponent,
-  iconName,
-}) => {
+const DrawerItemComponent = ({ label, routeName, IconComponent, iconName }) => {
   const router = useRouter();
   const pathname = usePathname();
   const isActive = pathname === routeName;
@@ -32,15 +22,12 @@ const DrawerItemComponent = ({
         <IconComponent
           name={iconName}
           size={size}
-          color={isActive ? '#fff' : '#000'}
+          color={isActive ? "#fff" : "#000"}
         />
       )}
       label={label}
-      labelStyle={[
-        styles.navItemLabel,
-        { color: isActive ? '#fff' : '#000' },
-      ]}
-      style={{ backgroundColor: isActive ? '#333' : '#fff' }}
+      labelStyle={[styles.navItemLabel, { color: isActive ? "#fff" : "#000" }]}
+      style={{ backgroundColor: isActive ? "#333" : "#fff" }}
       onPress={() => router.push(routeName)}
     />
   );
@@ -55,12 +42,12 @@ const ProfileDrawerItem = () => {
 
   const loadProfileData = async () => {
     try {
-      const savedUsername = await AsyncStorage.getItem('username');
-      const savedImageUri = await AsyncStorage.getItem('imageUri');
+      const savedUsername = await AsyncStorage.getItem("username");
+      const savedImageUri = await AsyncStorage.getItem("imageUri");
       setUsername(savedUsername);
       setImageUri(savedImageUri);
     } catch (error) {
-      console.error('Error loading profile data:', error);
+      console.error("Error loading profile data:", error);
     }
   };
 
@@ -69,7 +56,7 @@ const ProfileDrawerItem = () => {
   }, []);
 
   React.useEffect(() => {
-    if (isDrawerOpen === 'open') {
+    if (isDrawerOpen === "open") {
       loadProfileData();
     }
   }, [isDrawerOpen]);
@@ -81,7 +68,11 @@ const ProfileDrawerItem = () => {
           return (
             <Image
               source={{ uri: imageUri }}
-              style={{ width: (size+5), height: (size+5), borderRadius: (size+5) / 2 }}
+              style={{
+                width: size + 5,
+                height: size + 5,
+                borderRadius: (size + 5) / 2,
+              }}
             />
           );
         } else {
@@ -89,11 +80,11 @@ const ProfileDrawerItem = () => {
         }
       }}
       label={() => (
-        <Text style={[styles.navItemLabel, { color: '#000' }]}>
-          {username ? username : 'Login'}
+        <Text style={[styles.navItemLabel, { color: "#000" }]}>
+          {username ? username : "Login"}
         </Text>
       )}
-      onPress={() => router.push('/profile')}
+      onPress={() => router.push("/profile")}
     />
   );
 };
@@ -101,6 +92,11 @@ const ProfileDrawerItem = () => {
 const CustomDrawerContent = (props) => {
   return (
     <DrawerContentScrollView {...props}>
+      <View style={styles.infoContainer}>
+        <View style={styles.infoDetailsContainer}>
+          <Text style={styles.appTitle}>Story Path</Text>
+        </View>
+      </View>
 
       {/* Profile Drawer Item */}
       <ProfileDrawerItem />
@@ -137,19 +133,19 @@ export default function Layout() {
     >
       <Drawer.Screen
         name="index"
-        options={{ headerShown: true, headerTitle: 'Home' }}
+        options={{ headerShown: true, headerTitle: "Home" }}
       />
       <Drawer.Screen
         name="about"
-        options={{ headerShown: true, headerTitle: 'About' }}
+        options={{ headerShown: true, headerTitle: "About" }}
       />
       <Drawer.Screen
         name="profile"
-        options={{ headerShown: true, headerTitle: 'Profile' }}
+        options={{ headerShown: true, headerTitle: "Profile" }}
       />
       <Drawer.Screen
         name="projectsList"
-        options={{ headerShown: true, headerTitle: 'Projects' }}
+        options={{ headerShown: true, headerTitle: "Projects" }}
       />
     </Drawer>
   );
