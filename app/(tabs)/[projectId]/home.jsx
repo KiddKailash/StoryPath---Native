@@ -19,7 +19,6 @@ export default function HomeScreen() {
   const [loadingLocations, setLoadingLocations] = useState(true);
   const [error, setError] = useState(null);
 
-  const [selectedLocation, setSelectedLocation] = useState(null);
   const [visitedLocations, setVisitedLocations] = useState([]);
   const [totalScore, setTotalScore] = useState(0);
   const [maxScore, setMaxScore] = useState(0);
@@ -29,8 +28,8 @@ export default function HomeScreen() {
     const fetchProject = async () => {
       try {
         const projectData = await getProjectById(projectId);
-        setProject(projectData);
-        console.log("Project State:", projectData);
+        setProject(projectData[0]); // Assume the API returns an array, use the first element
+        console.log("Project State:", projectData[0]);
         setLoadingProject(false);
       } catch (err) {
         setError("Error fetching project data.");
@@ -43,7 +42,6 @@ export default function HomeScreen() {
       try {
         const locationsData = await getLocationsByProjectID(projectId);
         setLocations(locationsData);
-        // Calculate max score
         const totalMaxScore = locationsData.reduce(
           (sum, loc) => sum + (loc.score_points || 0),
           0
@@ -77,33 +75,6 @@ export default function HomeScreen() {
     );
   }
 
-  const getUserSelectText = () => {
-    if (project.participant_scoring === "Number of Scanned QR Codes") {
-      return "Scan QR Code at Location:";
-    }
-    return "Go to Location:";
-  };
-
-  const userSelectText = getUserSelectText();
-
-  const handleLocationChange = (itemValue) => {
-    if (itemValue === "") return;
-
-    const locationId = parseInt(itemValue, 10);
-    const location = locations.find((loc) => loc.id === locationId);
-
-    if (location && !visitedLocations.includes(locationId)) {
-      setVisitedLocations([...visitedLocations, locationId]);
-      setTotalScore((prevScore) => prevScore + (location.score_points || 0));
-    }
-
-    setSelectedLocation(location || null);
-  };
-
-  const resetSelectedLocation = () => {
-    setSelectedLocation(null);
-  };
-
   const renderHomescreenContent = () => {
     if (project.homescreen_display === "display_initial_clue") {
       return (
@@ -118,7 +89,7 @@ export default function HomeScreen() {
           <Text style={styles.sectionTitle}>All Locations</Text>
           {locations.map((location) => (
             <Text key={location.id} style={styles.sectionContent}>
-              {location.location_name} - {location.clue || "No clue provided"}
+              {`- ${location.location_name}`}
             </Text>
           ))}
         </View>
@@ -132,12 +103,16 @@ export default function HomeScreen() {
       {/* Project Title & Instructions */}
       <View style={styles.projectInfo}>
         <Text style={styles.projectTitle}>
-          {project[0].title || "Untitled Project"}
+          {project.title || "Untitled Project"}
         </Text>
         <Text style={styles.projectInstructions}>
-          {project[0].instructions || "No instructions provided."}
+          {project.instructions || "No instructions provided."}
         </Text>
       </View>
+
+      {/* Initial Clue or All Locations */}
+      {renderHomescreenContent()}
+
       {/* Score and Location Count */}
       <View style={styles.scoreContainer}>
         <Text style={styles.scoreText}>
@@ -191,16 +166,6 @@ const styles = StyleSheet.create({
   scoreText: {
     fontSize: 16,
   },
-  selectorContainer: {
-    marginBottom: 16,
-  },
-  selectorLabel: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
-  picker: {
-    backgroundColor: "#f0f0f0",
-  },
   homescreenContent: {
     marginBottom: 16,
   },
@@ -212,8 +177,5 @@ const styles = StyleSheet.create({
   sectionContent: {
     fontSize: 16,
     marginBottom: 4,
-  },
-  locationDetails: {
-    marginBottom: 16,
   },
 });

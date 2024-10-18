@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,39 +6,49 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   StyleSheet,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getProjects } from '../api/project-crud-commands'; 
+import { getProjects } from '../api/project-crud-commands'; // Ensure the import path is correct
 
 export default function ProjectsList() {
   const router = useRouter();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false); // For pull-to-refresh
+
+  // Function to fetch projects
+  const fetchProjects = async () => {
+    try {
+      const projectsData = await getProjects();
+      const publishedProjects = projectsData.filter(
+        (project) => project.is_published === true
+      );
+      setProjects(publishedProjects);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false); // Stop refreshing when data is loaded
+    }
+  };
 
   useEffect(() => {
-    // Function to fetch projects
-    const fetchProjects = async () => {
-      try {
-        const projectsData = await getProjects();
-        setProjects(projectsData);
-      } catch (error) {
-        console.error('Error fetching projects:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    fetchProjects(); // Fetch projects on mount
+  }, []);
 
-    fetchProjects();
+  // Handle pull-to-refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true); // Set refreshing state to true
+    fetchProjects(); // Fetch projects again
   }, []);
 
   // Function to navigate to project details or screens
   const navigateToProject = (projectId) => {
-    // Adjust the route according to your app's routing structure
     router.push(`/(tabs)/${projectId}/home`);
   };
 
   if (loading) {
-    // Show a loading indicator while fetching data
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color="#0000ff" />
@@ -48,7 +58,7 @@ export default function ProjectsList() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Projects</Text>
+      <Text style={styles.header}>Published Projects</Text>
       <FlatList
         data={projects}
         keyExtractor={(item) => item.id.toString()}
@@ -61,7 +71,10 @@ export default function ProjectsList() {
             <Text style={styles.description}>{item.description}</Text>
           </TouchableOpacity>
         )}
-        ListEmptyComponent={<Text>No projects available.</Text>}
+        ListEmptyComponent={<Text>No published projects available.</Text>}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        } // Enable pull-to-refresh
       />
     </View>
   );
