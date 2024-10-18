@@ -5,7 +5,7 @@ import { Drawer } from "expo-router/drawer";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import { Ionicons, Entypo, Foundation, FontAwesome6 } from "@expo/vector-icons";
 import { useRouter, usePathname } from "expo-router";
-import { Text, Image, StyleSheet } from "react-native";
+import { View, Text, Image, StyleSheet } from "react-native";
 
 // Import AsyncStorage and useDrawerStatus
 import AsyncStorage from "@react-native-async-storage/async-storage";
