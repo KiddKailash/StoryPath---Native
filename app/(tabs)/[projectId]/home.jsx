@@ -1,6 +1,6 @@
 // HomeScreen.jsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,14 +8,12 @@ import {
   Button,
   ScrollView,
   StyleSheet,
-} from 'react-native';
-import { Picker } from '@react-native-picker/picker'; // Corrected import
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { getProjectById } from '../../../api/project-crud-commands';
-import { getLocationsByProjectID } from '../../../api/location-crud-commands';
+} from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { getProjectById } from "../../../api/project-crud-commands";
+import { getLocationsByProjectID } from "../../../api/location-crud-commands";
 
 export default function HomeScreen() {
-  const router = useRouter();
   const { projectId } = useLocalSearchParams();
 
   const [project, setProject] = useState(null);
@@ -35,10 +33,10 @@ export default function HomeScreen() {
       try {
         const projectData = await getProjectById(projectId);
         setProject(projectData);
-        console.log('Project State:', projectData);
+        console.log("Project State:", projectData);
         setLoadingProject(false);
       } catch (err) {
-        setError('Error fetching project data.');
+        setError("Error fetching project data.");
         setLoadingProject(false);
       }
     };
@@ -56,7 +54,7 @@ export default function HomeScreen() {
         setMaxScore(totalMaxScore);
         setLoadingLocations(false);
       } catch (err) {
-        setError('Error fetching locations data.');
+        setError("Error fetching locations data.");
         setLoadingLocations(false);
       }
     };
@@ -83,16 +81,16 @@ export default function HomeScreen() {
   }
 
   const getUserSelectText = () => {
-    if (project.participant_scoring === 'Number of Scanned QR Codes') {
-      return 'Scan QR Code at Location:';
+    if (project.participant_scoring === "Number of Scanned QR Codes") {
+      return "Scan QR Code at Location:";
     }
-    return 'Go to Location:';
+    return "Go to Location:";
   };
 
   const userSelectText = getUserSelectText();
 
   const handleLocationChange = (itemValue) => {
-    if (itemValue === '') return;
+    if (itemValue === "") return;
 
     const locationId = parseInt(itemValue, 10);
     const location = locations.find((loc) => loc.id === locationId);
@@ -110,20 +108,20 @@ export default function HomeScreen() {
   };
 
   const renderHomescreenContent = () => {
-    if (project.homescreen_display === 'display_initial_clue') {
+    if (project.homescreen_display === "display_initial_clue") {
       return (
         <View style={styles.homescreenContent}>
           <Text style={styles.sectionTitle}>Initial Clue</Text>
           <Text style={styles.sectionContent}>{project.initial_clue}</Text>
         </View>
       );
-    } else if (project.homescreen_display === 'display_all_locations') {
+    } else if (project.homescreen_display === "display_all_locations") {
       return (
         <View style={styles.homescreenContent}>
           <Text style={styles.sectionTitle}>All Locations</Text>
           {locations.map((location) => (
             <Text key={location.id} style={styles.sectionContent}>
-              {location.location_name} - {location.clue || 'No clue provided'}
+              {location.location_name} - {location.clue || "No clue provided"}
             </Text>
           ))}
         </View>
@@ -137,13 +135,12 @@ export default function HomeScreen() {
       {/* Project Title & Instructions */}
       <View style={styles.projectInfo}>
         <Text style={styles.projectTitle}>
-          {project[0].title || 'Untitled Project'}
+          {project[0].title || "Untitled Project"}
         </Text>
         <Text style={styles.projectInstructions}>
-          {project[0].instructions || 'No instructions provided.'}
+          {project[0].instructions || "No instructions provided."}
         </Text>
       </View>
-
       {/* Score and Location Count */}
       <View style={styles.scoreContainer}>
         <Text style={styles.scoreText}>
@@ -163,8 +160,8 @@ const styles = StyleSheet.create({
   },
   loaderContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 8,
@@ -172,11 +169,11 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
-    color: 'red',
+    color: "red",
     fontSize: 16,
   },
   projectInfo: {
@@ -184,12 +181,12 @@ const styles = StyleSheet.create({
   },
   projectTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   projectInstructions: {
     fontSize: 16,
-    color: '#555',
+    color: "#555",
   },
   scoreContainer: {
     marginBottom: 16,
@@ -205,14 +202,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   picker: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
   },
   homescreenContent: {
     marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 8,
   },
   sectionContent: {

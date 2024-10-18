@@ -1,5 +1,3 @@
-// _layout.jsx
-
 import React from "react";
 import { Drawer } from "expo-router/drawer";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
