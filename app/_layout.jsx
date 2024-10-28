@@ -1,3 +1,5 @@
+// _layout.jsx
+
 import React from "react";
 import { Drawer } from "expo-router/drawer";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
@@ -24,7 +26,10 @@ const DrawerItemComponent = ({ label, routeName, IconComponent, iconName }) => {
         />
       )}
       label={label}
-      labelStyle={[styles.navItemLabel, { color: isActive ? "#fff" : "#000" }]}
+      labelStyle={[
+        styles.navItemLabel,
+        { color: isActive ? "#fff" : "#000" },
+      ]}
       style={{ backgroundColor: isActive ? "#333" : "#fff" }}
       onPress={() => router.push(routeName)}
     />
@@ -35,7 +40,6 @@ const ProfileDrawerItem = () => {
   const router = useRouter();
   const [username, setUsername] = React.useState(null);
   const [imageUri, setImageUri] = React.useState(null);
-
   const isDrawerOpen = useDrawerStatus();
 
   const loadProfileData = async () => {
@@ -61,22 +65,16 @@ const ProfileDrawerItem = () => {
 
   return (
     <DrawerItem
-      icon={({ size }) => {
-        if (username && imageUri) {
-          return (
-            <Image
-              source={{ uri: imageUri }}
-              style={{
-                width: size,
-                height: size,
-                borderRadius: (size) / 2,
-              }}
-            />
-          );
-        } else {
-          return <Ionicons name="person-add" size={size} color="#000" />;
-        }
-      }}
+      icon={({ size }) =>
+        username && imageUri ? (
+          <Image
+            source={{ uri: imageUri }}
+            style={{ width: size, height: size, borderRadius: size / 2 }}
+          />
+        ) : (
+          <Ionicons name="person-add" size={size} color="#000" />
+        )
+      }
       label={() => (
         <Text style={[styles.navItemLabel, { color: "#000" }]}>
           {username ? username : "Login"}
@@ -88,25 +86,33 @@ const ProfileDrawerItem = () => {
 };
 
 const CustomDrawerContent = (props) => {
+  const router = useRouter();
+  const pathname = usePathname();
+  const isActive = pathname === "/";
+
   return (
     <DrawerContentScrollView {...props}>
-      <View style={styles.infoContainer}>
-        <View style={styles.infoDetailsContainer}>
-          <Text style={styles.appTitle}>Story Path</Text>
-        </View>
-      </View>
+      {/* Story Path Button with Home Icon */}
+      <DrawerItem
+        icon={({ size }) => (
+          <Entypo name="home" size={size} color={isActive ? "#fff" : "#000"} />
+        )}
+        label="Story Path"
+        labelStyle={[
+          styles.appTitle,
+          { color: isActive ? "#fff" : "#000" },
+        ]}
+        style={[
+          styles.infoContainer,
+          { backgroundColor: isActive ? "#333" : "#fff" },
+        ]}
+        onPress={() => router.push("/")}
+      />
 
       {/* Profile Drawer Item */}
       <ProfileDrawerItem />
 
-      {/* Drawer Items */}
-      <DrawerItemComponent
-        label="Welcome"
-        routeName="/"
-        IconComponent={Entypo}
-        iconName="home"
-      />
-
+      {/* Other Drawer Items */}
       <DrawerItemComponent
         label="Projects"
         routeName="/projectsList"
@@ -155,16 +161,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
   },
   infoContainer: {
-    flexDirection: "row",
     paddingHorizontal: 10,
     paddingVertical: 20,
     borderColor: "#ccc",
     borderBottomWidth: 1,
     marginBottom: 10,
-  },
-  infoDetailsContainer: {
-    marginTop: 25,
-    marginLeft: 10,
   },
   appTitle: {
     fontSize: 20,
