@@ -69,7 +69,6 @@ export default function ProjectsList() {
             onPress={() => navigateToProject(item.id)}
           >
             <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.description}>{item.description}</Text>
           </TouchableOpacity>
         )}
         ListEmptyComponent={<Text>No published projects available.</Text>}
