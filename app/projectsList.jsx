@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -7,9 +7,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { getProjects } from '../api/project-crud-commands'; // Ensure the import path is correct
+} from "react-native";
+import { useRouter } from "expo-router";
+import { getProjects } from "../api/project-crud-commands";
+import { getLocations } from "../api/location-crud-commands";
 
 export default function ProjectsList() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function ProjectsList() {
       );
       setProjects(publishedProjects);
     } catch (error) {
-      console.error('Error fetching projects:', error);
+      console.error("Error fetching projects:", error);
     } finally {
       setLoading(false);
       setRefreshing(false); // Stop refreshing when data is loaded
@@ -87,26 +88,26 @@ const styles = StyleSheet.create({
   },
   loaderContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 16,
   },
   projectItem: {
     padding: 12,
     marginBottom: 12,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     borderRadius: 6,
   },
   title: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   description: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
 });
