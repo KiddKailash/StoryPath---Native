@@ -1,4 +1,5 @@
 {
+  "permissions": ["LOCATION"],
   "expo": {
     "name": "story-path-native-v2",
     "slug": "story-path-native-v2",

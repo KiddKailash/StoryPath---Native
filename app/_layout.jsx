@@ -5,7 +5,7 @@ import { Drawer } from "expo-router/drawer";
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
 import { Ionicons, Entypo, Foundation, FontAwesome6 } from "@expo/vector-icons";
 import { useRouter, usePathname } from "expo-router";
-import { View, Text, Image, StyleSheet } from "react-native";
+import { Text, Image, StyleSheet } from "react-native";
 
 // Import AsyncStorage and useDrawerStatus
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -103,7 +103,7 @@ const CustomDrawerContent = (props) => {
           { color: isActive ? "#fff" : "#000" },
         ]}
         style={[
-          styles.infoContainer,
+          styles.header,
           { backgroundColor: isActive ? "#333" : "#fff" },
         ]}
         onPress={() => router.push("/")}
@@ -157,12 +157,11 @@ export default function Layout() {
 
 const styles = StyleSheet.create({
   navItemLabel: {
-    marginLeft: -20,
+    marginLeft: 0,
     fontSize: 18,
   },
-  infoContainer: {
-    paddingHorizontal: 10,
-    paddingVertical: 20,
+  header: {
+    paddingVertical: 15,
     borderColor: "#ccc",
     borderBottomWidth: 1,
     marginBottom: 10,
