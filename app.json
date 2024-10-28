@@ -1,6 +1,6 @@
 {
-  "permissions": ["LOCATION"],
   "expo": {
+    "permissions": ["LOCATION"],
     "name": "story-path-native-v2",
     "slug": "story-path-native-v2",
     "version": "1.0.0",
