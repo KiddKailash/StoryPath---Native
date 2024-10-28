@@ -15,9 +15,15 @@ git add .
 # Commit the changes with the provided message
 git commit -m "$commit_message"
 
-# Push the changes to the origin repository
-echo "Pushing changes to origin..."
-git push origin
+# Check if the current branch has an upstream branch
+if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} > /dev/null 2>&1; then
+  echo "No upstream branch found. Setting upstream to origin/main..."
+  git push --set-upstream origin main
+else
+  # Push the changes to the origin repository
+  echo "Pushing changes to origin..."
+  git push origin
+fi
 
 # Pull the latest changes from the origin repository
 echo "Pulling the latest changes to ensure everything is up-to-date..."
