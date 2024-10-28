@@ -1,50 +1,39 @@
-# Welcome to your Expo app 👋
+StoryPath - Native
+StoryPath - Native is a location-based experience platform that allows users to explore virtual museum exhibits, participate in treasure hunts, and engage in interactive tours. The app serves as a companion to the StoryPath web platform, which enables content creators to author and publish these experiences. The React Native app makes it easy for users to discover projects, follow clues, scan QR codes, and track their progress.
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
-
-## Get started
-
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-    npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Key Features
+User Profiles:
+Participants can set a username and upload a profile photo, which is stored using AsyncStorage.
+Project List:
+Browse and select from a list of published projects to explore.
+Location-Based Gameplay:
+Participants can unlock content by scanning QR codes or entering a project’s location radius.
+Interactive Maps:
+View unlocked locations and the progress made throughout the project.
+Scoring System:
+Track points based on activities completed, such as visiting locations or scanning QR codes.
+Theme Toggle:
+Switch between light and dark modes to match user preferences.
+Technology Stack
+Frontend Framework: React Native with Expo Router
+Backend API Integration: Custom API endpoints for user tracking, projects, and locations
+Storage: AsyncStorage for managing user data (e.g., profiles)
+UI Components: React Native components with consistent styling
+Navigation: Drawer and Tab navigation for seamless user interaction
+Usage Workflow
+Profile Setup:
+Set up a profile by adding a username and a photo.
+Project Exploration:
+Select a project from the list and begin the experience.
+Interactive Gameplay:
+Unlock locations or scan QR codes to view project content.
+Score Tracking:
+Monitor progress by viewing your score and locations visited on the map.
+Setup & Deployment
+Install Dependencies:
+Use npm install to set up the project.
+Run the App Locally:
+Use expo start to launch the development server.
+Push Changes to GitHub:
+Use the git-commit.sh script to automate commits and push changes to the repository.
+This project offers an engaging way for users to explore location-based content and track their progress, ensuring a smooth and immersive experience.
