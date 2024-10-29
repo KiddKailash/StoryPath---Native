@@ -1,41 +1,139 @@
-// Import necessary modules from React, React Native, and Expo
-import React, { useState } from "react";
-import { StyleSheet, Text, View, Button } from "react-native";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  StyleSheet,
+  SafeAreaView,
+  Text,
+  View,
+  Button,
+  Modal,
+} from "react-native";
+import { CameraView, useCameraPermissions } from "expo-camera"; // Using CameraView as per your request
+import { WebView } from "react-native-webview";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export default function App() {
+// Corrected imports
+import { getLocationsByProjectID } from "../../../api/location-crud-commands";
+import { createTracking } from "../../../api/tracking-crud-commands";
+
+export default function QrCodeScanner() {
+  const isProcessingRef = useRef(false);
+  const [hasPermission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
-  const [scannedData, setScannedData] = useState("");
-  const [permission, requestPermission] = useCameraPermissions();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [locationContent, setLocationContent] = useState("");
 
-  if (!permission) {
-    // Camera permissions are still loading
+  // Request camera permissions on component mount
+  useEffect(() => {
+    (async () => {
+      if (hasPermission === null) {
+        console.log("Requesting camera permissions...");
+        const { status } = await requestPermission();
+        console.log("Camera permissions:", status === "granted");
+      } else {
+        console.log(
+          "Camera permissions already determined:",
+          hasPermission.granted
+        );
+      }
+    })();
+  }, []);
+
+  // Handle camera permission states
+  if (hasPermission === null) {
     return (
-      <View style={styles.container}>
-        <Text>Requesting permissions...</Text>
-      </View>
+      <SafeAreaView style={styles.permissionContainer}>
+        <Text>Requesting camera permission...</Text>
+      </SafeAreaView>
     );
   }
 
-  if (!permission.granted) {
-    // Camera permissions are not granted yet
+  if (!hasPermission.granted) {
+    console.log("Camera permission not granted");
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.permissionContainer}>
         <Text style={styles.message}>
-          We need your permission to show the camera
+          We need your permission to access the camera
         </Text>
-        <Button onPress={requestPermission} title="Grant permission" />
-      </View>
+        <Button onPress={requestPermission} title="Grant Permission" />
+      </SafeAreaView>
     );
   }
 
-  const handleBarCodeScanned = ({ type, data }) => {
-    setScanned(true);
-    setScannedData(data);
+  // Handle QR code scanning
+  const handleBarCodeScanned = async ({ data }) => {
+    if (isProcessingRef.current) {
+      return;
+    }
+    isProcessingRef.current = true;
+
+    console.log("QR code scanned with data:", data);
+
+    try {
+      // Parse the scanned data
+      const qrData = data.split(",");
+      const [projectID, locationID] = qrData;
+
+      // Fetch the location content using the API function
+      const locationData = (await getLocationsByProjectID(projectID)).filter(
+        (location) => location.id.toString() === locationID
+      )[0];
+      console.log("Fetched location data:", locationData);
+
+      if (locationData) {
+        setLocationContent(locationData.location_content);
+        setModalVisible(true);
+        console.log("Location content set and modal opened");
+      } else {
+        alert("Location not found");
+        setScanned(false);
+        console.log("Location not found for ID:", locationID);
+        return;
+      }
+
+      // Send tracking data using the API function
+      await sendTrackingData(projectID, locationID, locationData.score_points);
+      console.log("Tracking data sent successfully");
+    } catch (error) {
+      console.error("Error handling scanned data:", error);
+      alert("Invalid QR code data");
+    } finally {
+      isProcessingRef.current = false;
+    }
+  };
+
+  // Send tracking data to the tracking endpoint using the API function
+  const sendTrackingData = async (projectID, locationID, score_points) => {
+    try {
+      // Retrieve participant's username from AsyncStorage
+      const participant_username = await AsyncStorage.getItem("username");
+      const username = "s4582256";
+      console.log("Participant username:", participant_username);
+
+      const trackingData = {
+        project_id: projectID,
+        location_id: locationID,
+        points: score_points, // Update points if applicable
+        username: username,
+        participant_username: participant_username,
+      };
+
+      console.log("Sending tracking data:", trackingData);
+      await createTracking(trackingData);
+    } catch (error) {
+      console.error("Error sending tracking data:", error);
+    }
+  };
+
+  // Close the modal and reset states
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setScanned(false);
+    setLocationContent("");
+    console.log("Modal closed and states reset");
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <CameraView
         style={styles.camera}
         type="front"
@@ -62,13 +160,20 @@ export default function App() {
           </View>
         </View>
       </CameraView>
-      {scanned && (
-        <View style={styles.scanResultContainer}>
-          <Text style={styles.scanResultText}>Scanned data: {scannedData}</Text>
-          <Button title="Tap to Scan Again" onPress={() => setScanned(false)} />
-        </View>
+
+      {modalVisible && (
+        <Modal
+          visible={modalVisible}
+          animationType="slide"
+          onRequestClose={handleCloseModal}
+        >
+          <SafeAreaView style={{ flex: 1 }}>
+            <WebView source={{ html: locationContent }} style={{ flex: 1 }} />
+            <Button title="Close" onPress={handleCloseModal} />
+          </SafeAreaView>
+        </Modal>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -79,40 +184,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
   },
+  permissionContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   message: {
     textAlign: "center",
     paddingBottom: 10,
   },
   camera: {
     flex: 1,
-  },
-  buttonContainer: {
-    flex: 1,
-    flexDirection: "row",
-    backgroundColor: "transparent",
-    margin: 64,
-  },
-  button: {
-    flex: 1,
-    alignSelf: "flex-end",
-    alignItems: "center",
-  },
-  text: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "white",
-  },
-  scanResultContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "white",
-    padding: 15,
-  },
-  scanResultText: {
-    fontSize: 16,
-    marginBottom: 10,
   },
   overlay: {
     position: "absolute",
@@ -128,8 +210,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 5,
     alignItems: "center",
-    alignSelf: "center", 
-    marginHorizontal: "auto", 
+    alignSelf: "center",
   },
   topText: {
     color: "#fff",
@@ -193,19 +274,16 @@ const styles = StyleSheet.create({
     borderColor: "white",
     borderBottomRightRadius: 15,
   },
-  invalidDataContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  scanResultContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "white",
+    padding: 15,
   },
-  invalidDataText: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  invalidDataContent: {
+  scanResultText: {
     fontSize: 16,
-    marginTop: 10,
-    textAlign: "center",
-    paddingHorizontal: 20,
+    marginBottom: 10,
   },
 });
