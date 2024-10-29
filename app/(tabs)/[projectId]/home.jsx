@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
+  SafeAreaView,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { getProjectById } from "../../../api/project-crud-commands";
@@ -99,30 +100,34 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* Project Title & Instructions */}
-      <View style={styles.projectInfo}>
-        <Text style={styles.projectTitle}>
-          {project.title || "Untitled Project"}
-        </Text>
-        <Text style={styles.projectInstructions}>
-          {project.instructions || "No instructions provided."}
-        </Text>
-      </View>
+    <>
+      <SafeAreaView>
+        <ScrollView contentContainerStyle={styles.container}>
+          {/* Project Title & Instructions */}
+          <View style={styles.projectInfo}>
+            <Text style={styles.projectTitle}>
+              {project.title || "Untitled Project"}
+            </Text>
+            <Text style={styles.projectInstructions}>
+              {project.instructions || "No instructions provided."}
+            </Text>
+          </View>
 
-      {/* Initial Clue or All Locations */}
-      {renderHomescreenContent()}
+          {/* Initial Clue or All Locations */}
+          {renderHomescreenContent()}
 
-      {/* Score and Location Count */}
-      <View style={styles.scoreContainer}>
-        <Text style={styles.scoreText}>
-          Score: {totalScore}/{maxScore}
-        </Text>
-        <Text style={styles.scoreText}>
-          Locations Visited: {visitedLocations.length}/{locations.length}
-        </Text>
-      </View>
-    </ScrollView>
+          {/* Score and Location Count */}
+          <View style={styles.scoreContainer}>
+            <Text style={styles.scoreText}>
+              Score: {totalScore}/{maxScore}
+            </Text>
+            <Text style={styles.scoreText}>
+              Locations Visited: {visitedLocations.length}/{locations.length}
+            </Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </>
   );
 }
 

@@ -1,51 +1,45 @@
-// QrCodeScanner.jsx
-
+// Import necessary modules from React, React Native, and Expo
 import React, { useState } from "react";
-import { StyleSheet, Text, View, Button, Modal } from "react-native";
+import { StyleSheet, Text, View, Button } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { WebView } from "react-native-webview";
 
-export default function QrCodeScanner() {
-  const [hasPermission, requestPermission] = useCameraPermissions();
+export default function App() {
   const [scanned, setScanned] = useState(false);
   const [scannedData, setScannedData] = useState("");
+  const [permission, requestPermission] = useCameraPermissions();
 
-  if (hasPermission === null) {
+  if (!permission) {
     // Camera permissions are still loading
     return (
-      <View style={styles.permissionContainer}>
-        <Text>Requesting camera permission...</Text>
+      <View style={styles.container}>
+        <Text>Requesting permissions...</Text>
       </View>
     );
   }
 
-  if (hasPermission.status !== "granted") {
+  if (!permission.granted) {
     // Camera permissions are not granted yet
     return (
-      <View style={styles.permissionContainer}>
+      <View style={styles.container}>
         <Text style={styles.message}>
-          We need your permission to access the camera
+          We need your permission to show the camera
         </Text>
-        <Button onPress={requestPermission} title="Grant Permission" />
+        <Button onPress={requestPermission} title="Grant permission" />
       </View>
     );
   }
 
-  const handleBarCodeScanned = ({ data }) => {
+  const handleBarCodeScanned = ({ type, data }) => {
     setScanned(true);
     setScannedData(data);
-  };
-
-  const handleCloseModal = () => {
-    setScanned(false);
-    setScannedData("");
   };
 
   return (
     <View style={styles.container}>
       <CameraView
         style={styles.camera}
-        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+        type="front"
+        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
       >
         {/* Overlay */}
         <View style={styles.overlay}>
@@ -68,21 +62,11 @@ export default function QrCodeScanner() {
           </View>
         </View>
       </CameraView>
-
       {scanned && (
-        <Modal
-          visible={scanned}
-          animationType="slide"
-          onRequestClose={handleCloseModal}
-        >
-          <View style={{ flex: 1 }}>
-            <View style={styles.invalidDataContainer}>
-              <Text style={styles.invalidDataText}>Scanned Data:</Text>
-              <Text style={styles.invalidDataContent}>{scannedData}</Text>
-            </View>
-            <Button title="Close" onPress={handleCloseModal} />
-          </View>
-        </Modal>
+        <View style={styles.scanResultContainer}>
+          <Text style={styles.scanResultText}>Scanned data: {scannedData}</Text>
+          <Button title="Tap to Scan Again" onPress={() => setScanned(false)} />
+        </View>
       )}
     </View>
   );
@@ -93,11 +77,7 @@ const overlayColor = "rgba(0,0,0,0.5)"; // Semi-transparent black
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  permissionContainer: {
-    flex: 1,
     justifyContent: "center",
-    alignItems: "center",
   },
   message: {
     textAlign: "center",
@@ -105,6 +85,34 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
+  },
+  buttonContainer: {
+    flex: 1,
+    flexDirection: "row",
+    backgroundColor: "transparent",
+    margin: 64,
+  },
+  button: {
+    flex: 1,
+    alignSelf: "flex-end",
+    alignItems: "center",
+  },
+  text: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "white",
+  },
+  scanResultContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "white",
+    padding: 15,
+  },
+  scanResultText: {
+    fontSize: 16,
+    marginBottom: 10,
   },
   overlay: {
     position: "absolute",
@@ -114,9 +122,14 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   topTextContainer: {
-    backgroundColor: "#888",
+    backgroundColor: "rgb(60,60,60)",
+    marginTop: 50,
     paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 5,
     alignItems: "center",
+    alignSelf: "center", 
+    marginHorizontal: "auto", 
   },
   topText: {
     color: "#fff",
@@ -138,7 +151,7 @@ const styles = StyleSheet.create({
   },
   topLeftCorner: {
     position: "absolute",
-    top: 0,
+    top: -40,
     left: 0,
     width: 40,
     height: 40,
@@ -149,7 +162,7 @@ const styles = StyleSheet.create({
   },
   topRightCorner: {
     position: "absolute",
-    top: 0,
+    top: -40,
     right: 0,
     width: 40,
     height: 40,
@@ -160,7 +173,7 @@ const styles = StyleSheet.create({
   },
   bottomLeftCorner: {
     position: "absolute",
-    bottom: 0,
+    bottom: 30,
     left: 0,
     width: 40,
     height: 40,
@@ -171,7 +184,7 @@ const styles = StyleSheet.create({
   },
   bottomRightCorner: {
     position: "absolute",
-    bottom: 0,
+    bottom: 40,
     right: 0,
     width: 40,
     height: 40,
