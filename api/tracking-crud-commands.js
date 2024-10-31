@@ -16,6 +16,20 @@ export const getAllTracking = () => apiRequest("/tracking");
 export const getTrackingByParticipant = (participantUsername) =>
   apiRequest(`/tracking?participant_username=eq.${participantUsername}`);
 
+
+/**
+ * Fetch tracking entry by participant_username, project_id, and location_id.
+ *
+ * @param {string} participantUsername - The participant's username.
+ * @param {number} projectId - The ID of the project.
+ * @param {number} locationId - The ID of the location.
+ * @returns {Promise<Array>} - An array of matching tracking entries (should be at most one).
+ */
+export const getTrackingEntry = (participantUsername, projectId, locationId) =>
+  apiRequest(
+    `/tracking?participant_username=eq.${participantUsername}&project_id=eq.${projectId}&location_id=eq.${locationId}`
+  );
+
 /**
  * Fetch tracking entries by project_id.
  *

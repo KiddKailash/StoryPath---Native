@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   Modal,
   Button,
+  RefreshControl,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { WebView } from "react-native-webview";
@@ -17,23 +18,21 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { getProjectById } from "../../api/project-crud-commands";
 import { getLocationsByProjectID } from "../../api/location-crud-commands";
-import { createTracking } from "../../api/tracking-crud-commands";
+import {
+  createTracking,
+  getTrackingByParticipant,
+  getTrackingEntry
+} from "../../api/tracking-crud-commands";
 
 export default function HomeScreen() {
   const { projectId } = useLocalSearchParams();
   console.log("HomeScreen projectId:", projectId);
 
-  if (!projectId) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Invalid project ID.</Text>
-      </View>
-    );
-  }
-
   const [project, setProject] = useState(null);
   const [locations, setLocations] = useState([]);
+  const [tracking, setTracking] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [visitedLocations, setVisitedLocations] = useState([]);
   const [totalScore, setTotalScore] = useState(0);
@@ -41,50 +40,55 @@ export default function HomeScreen() {
   const [currentLocationContent, setCurrentLocationContent] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Fetch project and locations data
+  // Wrap fetchData in useCallback with projectId as a dependency
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const participant_username =
+        (await AsyncStorage.getItem("username")) || "guest";
+      const [projectData, locationsData, trackingData] = await Promise.all([
+        getProjectById(projectId),
+        getLocationsByProjectID(projectId),
+        getTrackingByParticipant(participant_username),
+      ]);
+
+      setProject(projectData[0]);
+      setLocations(locationsData);
+      setTracking(trackingData);
+
+      console.log("Tracking Data:", JSON.stringify(trackingData, null, 2));
+
+      const totalMaxScore = locationsData.reduce(
+        (sum, loc) => sum + (loc.score_points || 0),
+        0
+      );
+      setMaxScore(totalMaxScore);
+    } catch (err) {
+      setError("Error fetching data.");
+      console.error("Error fetching project or locations:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [projectId]); // Include projectId in the dependency array
+
+  // Update useEffect to depend on fetchData
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchData = async () => {
-      try {
-        const [projectData, locationsData] = await Promise.all([
-          getProjectById(projectId),
-          getLocationsByProjectID(projectId),
-        ]);
-
-        if (isMounted) {
-          setProject(projectData[0]);
-          setLocations(locationsData);
-
-          const totalMaxScore = locationsData.reduce(
-            (sum, loc) => sum + (loc.score_points || 0),
-            0
-          );
-          setMaxScore(totalMaxScore);
-
-          setLoading(false);
-          console.log("Data loaded successfully:", { projectData, locationsData });
-        }
-      } catch (err) {
-        setError("Error fetching data.");
-        console.error("Error fetching project or locations:", err);
-        setLoading(false);
-      }
-    };
-
     fetchData();
+  }, [fetchData]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [projectId]);
+  // Update onRefresh to depend on fetchData
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchData();
+  }, [fetchData]);
 
   // Location tracking
   useEffect(() => {
     let locationSubscription = null;
     const checkLocationPermissionAndStartTracking = async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      if (status !== "granted") {
         setError("Permission to access location was denied");
         return;
       }
@@ -93,7 +97,7 @@ export default function HomeScreen() {
         {
           accuracy: Location.Accuracy.High,
           distanceInterval: 10, // Update every 10 meters
-          timeInterval: 5000,   // Update every 5 seconds
+          timeInterval: 5000, // Update every 5 seconds
         },
         (location) => {
           handleLocationUpdate(location.coords);
@@ -111,14 +115,16 @@ export default function HomeScreen() {
   }, [locations, visitedLocations]);
 
   const handleLocationUpdate = async (userCoords) => {
-    // Check if user is near any location
-    const radius = 50; // Radius in meters to consider as 'at location'
+    const radius = 50;
     for (const loc of locations) {
       if (visitedLocations.includes(loc.id)) {
-        continue; // Skip if already visited
+        continue;
       }
 
-      const [latStr, lonStr] = loc.location_position.replace("(", "").replace(")", "").split(",");
+      const [latStr, lonStr] = loc.location_position
+        .replace("(", "")
+        .replace(")", "")
+        .split(",");
       const locationCoords = {
         latitude: parseFloat(latStr),
         longitude: parseFloat(lonStr),
@@ -130,39 +136,50 @@ export default function HomeScreen() {
       );
 
       if (distance <= radius) {
-        // User is at the location
         console.log(`User has arrived at location ${loc.location_name}`);
-        // Update visited locations and score
         setVisitedLocations((prev) => [...prev, loc.id]);
         setTotalScore((prev) => prev + (loc.score_points || 0));
-        // Display location content
         setCurrentLocationContent(loc.location_content);
         setModalVisible(true);
-        // Send tracking data
         await sendTrackingData(projectId, loc.id, loc.score_points);
       }
     }
   };
 
-  const sendTrackingData = async (projectID, locationID, score_points) => {
-    try {
-      const participant_username = await AsyncStorage.getItem("username") || "guest";
-      const username = "s4582256"; // Replace with your actual username
+  // Update sendTrackingData function
+const sendTrackingData = async (projectID, locationID, score_points) => {
+  try {
+    const participant_username =
+      (await AsyncStorage.getItem("username")) || "guest";
+    const username = "s4582256"; // Replace with your actual username
 
-      const trackingData = {
-        project_id: projectID,
-        location_id: locationID,
-        points: score_points,
-        username: username,
-        participant_username: participant_username,
-      };
+    // Define tracking data structure
+    const trackingData = {
+      project_id: projectID,
+      location_id: locationID,
+      points: score_points,
+      username: username,
+      participant_username: participant_username,
+    };
 
-      console.log("Sending tracking data:", trackingData);
+    // Fetch existing tracking entry for the project, location, and participant
+    const existingTrackingEntries = await getTrackingEntry(
+      participant_username,
+      projectID,
+      locationID
+    );
+
+    // Only create a new tracking entry if none exists
+    if (existingTrackingEntries.length === 0) {
+      console.log("Creating new tracking data entry:", trackingData);
       await createTracking(trackingData);
-    } catch (error) {
-      console.error("Error sending tracking data:", error);
+    } else {
+      console.log("Tracking entry already exists, skipping creation.");
     }
-  };
+  } catch (error) {
+    console.error("Error sending tracking data:", error);
+  }
+};
 
   const closeModal = () => {
     setModalVisible(false);
@@ -203,8 +220,12 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Main Content */}
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Project Title & Instructions */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View style={styles.projectInfo}>
           <Text style={styles.projectTitle}>
             {project?.title || "Untitled Project"}
@@ -214,10 +235,8 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Initial Clue or All Locations */}
         {renderHomescreenContent()}
 
-        {/* Score and Location Count */}
         <View style={styles.scoreContainer}>
           <Text style={styles.scoreText}>
             Score: {totalScore}/{maxScore}
@@ -228,7 +247,6 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
-      {/* Loading Screen */}
       {loading && (
         <Modal transparent={true} animationType="none">
           <View style={styles.loadingContainer}>
@@ -240,7 +258,6 @@ export default function HomeScreen() {
         </Modal>
       )}
 
-      {/* Location Content Modal */}
       {modalVisible && (
         <Modal
           visible={modalVisible}
@@ -248,7 +265,10 @@ export default function HomeScreen() {
           onRequestClose={closeModal}
         >
           <SafeAreaView style={{ flex: 1 }}>
-            <WebView source={{ html: currentLocationContent }} style={{ flex: 1 }} />
+            <WebView
+              source={{ html: currentLocationContent }}
+              style={{ flex: 1 }}
+            />
             <Button title="Close" onPress={closeModal} />
           </SafeAreaView>
         </Modal>
@@ -263,11 +283,6 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     padding: 16,
-  },
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
   },
   loadingContainer: {
     flex: 1,
