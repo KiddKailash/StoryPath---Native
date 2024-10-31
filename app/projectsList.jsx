@@ -44,7 +44,7 @@ export default function ProjectsList() {
   };
 
   useEffect(() => {
-    fetchProjects(); // Fetch projects on mount
+    fetchProjects();
   }, []);
 
   // Handle pull-to-refresh
@@ -55,7 +55,11 @@ export default function ProjectsList() {
 
   // Function to navigate to project details or screens
   const navigateToProject = (projectId) => {
-    router.push(`/${projectId}/home`);
+    console.log("Navigating to project:", projectId);
+    router.push({
+      pathname: "/[projectId]/home",
+      params: { projectId },
+    });
   };
 
   if (loading) {
@@ -114,9 +118,5 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "bold",
-  },
-  description: {
-    fontSize: 14,
-    color: "#666",
   },
 });

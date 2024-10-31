@@ -7,17 +7,26 @@ import {
   StyleSheet,
   SafeAreaView,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { getProjectById } from "../../api/project-crud-commands";
 import { getLocationsByProjectID } from "../../api/location-crud-commands";
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { projectId } = useLocalSearchParams();
+  console.log("HomeScreen projectId:", projectId);
+
+  if (!projectId) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>Invalid project ID.</Text>
+      </View>
+    );
+  }
 
   const [project, setProject] = useState(null);
   const [locations, setLocations] = useState([]);
-  const [loadingProject, setLoadingProject] = useState(true);
-  const [loadingLocations, setLoadingLocations] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [visitedLocations, setVisitedLocations] = useState([]);
@@ -25,41 +34,47 @@ export default function HomeScreen() {
   const [maxScore, setMaxScore] = useState(0);
 
   useEffect(() => {
-    // Fetch project data
-    const fetchProject = async () => {
+    let isMounted = true;
+    const controller = new AbortController();
+
+    const fetchData = async () => {
       try {
-        const projectData = await getProjectById(projectId);
-        setProject(projectData[0]); // Assume the API returns an array, use the first element
-        console.log("Project State:", projectData[0]);
-        setLoadingProject(false);
+        const [projectData, locationsData] = await Promise.all([
+          getProjectById(projectId, { signal: controller.signal }),
+          getLocationsByProjectID(projectId, { signal: controller.signal }),
+        ]);
+
+        if (isMounted) {
+          setProject(projectData[0]);
+          setLocations(locationsData);
+
+          const totalMaxScore = locationsData.reduce(
+            (sum, loc) => sum + (loc.score_points || 0),
+            0
+          );
+          setMaxScore(totalMaxScore);
+
+          setLoading(false);
+          console.log("Data loaded successfully:", { projectData, locationsData });
+        }
       } catch (err) {
-        setError("Error fetching project data.");
-        setLoadingProject(false);
+        if (err.name !== "AbortError") {
+          setError("Error fetching data.");
+          console.error("Error fetching project or locations:", err);
+        }
+        setLoading(false);
       }
     };
 
-    // Fetch locations data
-    const fetchLocations = async () => {
-      try {
-        const locationsData = await getLocationsByProjectID(projectId);
-        setLocations(locationsData);
-        const totalMaxScore = locationsData.reduce(
-          (sum, loc) => sum + (loc.score_points || 0),
-          0
-        );
-        setMaxScore(totalMaxScore);
-        setLoadingLocations(false);
-      } catch (err) {
-        setError("Error fetching locations data.");
-        setLoadingLocations(false);
-      }
-    };
+    fetchData();
 
-    fetchProject();
-    fetchLocations();
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
   }, [projectId]);
 
-  if (loadingProject || loadingLocations) {
+  if (loading) {
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color="#0000ff" />
@@ -77,14 +92,14 @@ export default function HomeScreen() {
   }
 
   const renderHomescreenContent = () => {
-    if (project.homescreen_display === "display_initial_clue") {
+    if (project?.homescreen_display === "display_initial_clue") {
       return (
         <View style={styles.homescreenContent}>
           <Text style={styles.sectionTitle}>Initial Clue</Text>
           <Text style={styles.sectionContent}>{project.initial_clue}</Text>
         </View>
       );
-    } else if (project.homescreen_display === "display_all_locations") {
+    } else if (project?.homescreen_display === "display_all_locations") {
       return (
         <View style={styles.homescreenContent}>
           <Text style={styles.sectionTitle}>All Locations</Text>
@@ -100,34 +115,32 @@ export default function HomeScreen() {
   };
 
   return (
-    <>
-      <SafeAreaView>
-        <ScrollView contentContainerStyle={styles.container}>
-          {/* Project Title & Instructions */}
-          <View style={styles.projectInfo}>
-            <Text style={styles.projectTitle}>
-              {project.title || "Untitled Project"}
-            </Text>
-            <Text style={styles.projectInstructions}>
-              {project.instructions || "No instructions provided."}
-            </Text>
-          </View>
+    <SafeAreaView key={`project-${projectId}`}>
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* Project Title & Instructions */}
+        <View style={styles.projectInfo}>
+          <Text style={styles.projectTitle}>
+            {project?.title || "Untitled Project"}
+          </Text>
+          <Text style={styles.projectInstructions}>
+            {project?.instructions || "No instructions provided."}
+          </Text>
+        </View>
 
-          {/* Initial Clue or All Locations */}
-          {renderHomescreenContent()}
+        {/* Initial Clue or All Locations */}
+        {renderHomescreenContent()}
 
-          {/* Score and Location Count */}
-          <View style={styles.scoreContainer}>
-            <Text style={styles.scoreText}>
-              Score: {totalScore}/{maxScore}
-            </Text>
-            <Text style={styles.scoreText}>
-              Locations Visited: {visitedLocations.length}/{locations.length}
-            </Text>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </>
+        {/* Score and Location Count */}
+        <View style={styles.scoreContainer}>
+          <Text style={styles.scoreText}>
+            Score: {totalScore}/{maxScore}
+          </Text>
+          <Text style={styles.scoreText}>
+            Locations Visited: {visitedLocations.length}/{locations.length}
+          </Text>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
