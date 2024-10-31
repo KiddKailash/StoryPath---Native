@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   ScrollView,
   StyleSheet,
   SafeAreaView,
+  RefreshControl,
+  Modal,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { getProjectById } from "../../api/project-crud-commands";
@@ -26,61 +28,51 @@ export default function HomeScreen() {
   const [project, setProject] = useState(null);
   const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false); // For pull-down-to-refresh
   const [error, setError] = useState(null);
 
   const [visitedLocations, setVisitedLocations] = useState([]);
   const [totalScore, setTotalScore] = useState(0);
   const [maxScore, setMaxScore] = useState(0);
 
-  useEffect(() => {
-    let isMounted = true;
-    const controller = new AbortController();
+  // Function to fetch data
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [projectData, locationsData] = await Promise.all([
+        getProjectById(projectId),
+        getLocationsByProjectID(projectId),
+      ]);
 
-    const fetchData = async () => {
-      try {
-        const [projectData, locationsData] = await Promise.all([
-          getProjectById(projectId, { signal: controller.signal }),
-          getLocationsByProjectID(projectId, { signal: controller.signal }),
-        ]);
+      setProject(projectData[0]);
+      setLocations(locationsData);
 
-        if (isMounted) {
-          setProject(projectData[0]);
-          setLocations(locationsData);
+      const totalMaxScore = locationsData.reduce(
+        (sum, loc) => sum + (loc.score_points || 0),
+        0
+      );
+      setMaxScore(totalMaxScore);
 
-          const totalMaxScore = locationsData.reduce(
-            (sum, loc) => sum + (loc.score_points || 0),
-            0
-          );
-          setMaxScore(totalMaxScore);
-
-          setLoading(false);
-          console.log("Data loaded successfully:", { projectData, locationsData });
-        }
-      } catch (err) {
-        if (err.name !== "AbortError") {
-          setError("Error fetching data.");
-          console.error("Error fetching project or locations:", err);
-        }
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
+      // console.log("Data loaded successfully:", { projectData, locationsData });
+    } catch (err) {
+      setError("Error fetching data.");
+      console.error("Error fetching project or locations:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [projectId]);
 
-  if (loading) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
-  }
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Pull-down-to-refresh handler
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchData();
+  }, [fetchData]);
 
   if (error) {
     return (
@@ -114,8 +106,13 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView key={`project-${projectId}`}>
-      <ScrollView contentContainerStyle={styles.container}>
+    <SafeAreaView key={`project-${projectId}`} style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {/* Project Title & Instructions */}
         <View style={styles.projectInfo}>
           <Text style={styles.projectTitle}>
@@ -139,12 +136,27 @@ export default function HomeScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Loading Screen */}
+      {loading && !refreshing && (
+        <Modal transparent={true} animationType="none">
+          <View style={styles.loadingContainer}>
+            <View style={styles.loadingWrapper}>
+              <ActivityIndicator size="large" color="#ffffff" />
+              <Text style={styles.loadingText}>Loading...</Text>
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  scrollContainer: {
     padding: 16,
   },
   loaderContainer: {
@@ -152,18 +164,36 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  loadingContainer: {
+    flex: 1,
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingWrapper: {
+    backgroundColor: "#444",
+    padding: 20,
+    borderRadius: 10,
+    alignItems: "center",
+  },
   loadingText: {
-    marginTop: 8,
+    marginTop: 10,
     fontSize: 16,
+    color: "#fff",
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 16,
   },
   errorText: {
     color: "red",
     fontSize: 16,
+    textAlign: "center",
   },
   projectInfo: {
     marginBottom: 16,
