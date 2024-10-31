@@ -46,3 +46,4 @@ StoryPath - Native is a **location-based experience platform** that allows users
    Use the following command to install all required dependencies:
    ```bash
    npm install
+   ```
