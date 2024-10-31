@@ -16,6 +16,7 @@ import { createTracking } from "../../api/tracking-crud-commands";
 
 export default function QrCodeScanner() {
   const { projectId } = useLocalSearchParams();
+  
   console.log("QR Scanner projectId:", projectId);
 
   const isProcessingRef = useRef(false);
