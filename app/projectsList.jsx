@@ -10,27 +10,36 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { getProjects } from "../api/project-crud-commands";
-import { getLocations } from "../api/location-crud-commands";
+import { getParticipantCountByProject } from "../api/tracking-crud-commands";
 
 export default function ProjectsList() {
   const router = useRouter();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false); // For pull-to-refresh
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Function to fetch projects
+  // Function to fetch projects and participant counts
   const fetchProjects = async () => {
     try {
       const projectsData = await getProjects();
       const publishedProjects = projectsData.filter(
         (project) => project.is_published === true
       );
-      setProjects(publishedProjects);
+
+      // Fetch participant counts for each project
+      const projectsWithCounts = await Promise.all(
+        publishedProjects.map(async (project) => {
+          const participantCount = await getParticipantCountByProject(project.id);
+          return { ...project, participantCount };
+        })
+      );
+
+      setProjects(projectsWithCounts);
     } catch (error) {
-      console.error("Error fetching projects:", error);
+      console.error("Error fetching projects or participant counts:", error);
     } finally {
       setLoading(false);
-      setRefreshing(false); // Stop refreshing when data is loaded
+      setRefreshing(false);
     }
   };
 
@@ -40,8 +49,8 @@ export default function ProjectsList() {
 
   // Handle pull-to-refresh
   const onRefresh = useCallback(() => {
-    setRefreshing(true); // Set refreshing state to true
-    fetchProjects(); // Fetch projects again
+    setRefreshing(true);
+    fetchProjects();
   }, []);
 
   // Function to navigate to project details or screens
@@ -69,12 +78,13 @@ export default function ProjectsList() {
             onPress={() => navigateToProject(item.id)}
           >
             <Text style={styles.title}>{item.title}</Text>
+            <Text>Participants: {item.participantCount}</Text>
           </TouchableOpacity>
         )}
         ListEmptyComponent={<Text>No published projects available.</Text>}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        } // Enable pull-to-refresh
+        }
       />
     </View>
   );

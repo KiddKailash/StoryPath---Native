@@ -1,5 +1,3 @@
-// tracking-crud-commands.js
-
 import { apiRequest } from "./fetch-request";
 
 /**
@@ -77,21 +75,29 @@ export const deleteTracking = (id) =>
  * @returns {Promise<number>} - The number of unique participants.
  */
 export const getParticipantCountByProject = async (projectId) => {
-  const response = await apiRequest(
-    `/tracking?project_id=eq.${projectId}&select=participant_username`,
-    "GET",
-    null,
-    {
-      headers: {
-        Prefer: "count=exact",
-      },
-      // Indicate that we need the full response to access headers
-      fullResponse: true,
-    }
-  );
+  try {
+    // Use URLSearchParams to build query parameters
+    const params = new URLSearchParams();
+    params.append("project_id", `eq.${projectId}`);
+    params.append("select", "participant_username");
 
-  // Extract the count from the Content-Range header
-  const contentRange = response.headers.get("Content-Range");
-  const totalCount = contentRange ? parseInt(contentRange.split("/")[1], 10) : 0;
-  return totalCount;
+    // Construct the endpoint with query parameters
+    const endpoint = `/tracking?${params.toString()}`;
+
+    // Make the API request
+    const trackingData = await apiRequest(endpoint, "GET");
+
+    if (!trackingData || !Array.isArray(trackingData)) {
+      return 0;
+    }
+
+    // Calculate the number of unique participant usernames
+    const uniqueParticipants = new Set(
+      trackingData.map((item) => item.participant_username)
+    );
+    return uniqueParticipants.size;
+  } catch (error) {
+    console.error("Error fetching tracking data:", error);
+    return 0; // Return 0 in case of error
+  }
 };
