@@ -15,13 +15,14 @@ import { WebView } from "react-native-webview";
 import * as Location from "expo-location";
 import { getDistance } from "geolib";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native"; // Import useFocusEffect
 
 import { getProjectById } from "../../api/project-crud-commands";
 import { getLocationsByProjectID } from "../../api/location-crud-commands";
 import {
   createTracking,
   getTrackingByParticipant,
-  getTrackingEntry
+  getTrackingEntry,
 } from "../../api/tracking-crud-commands";
 
 export default function HomeScreen() {
@@ -35,6 +36,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [visitedLocations, setVisitedLocations] = useState([]);
+  const [visitedLocationsData, setVisitedLocationsData] = useState([]); // New state variable
   const [totalScore, setTotalScore] = useState(0);
   const [maxScore, setMaxScore] = useState(0);
   const [currentLocationContent, setCurrentLocationContent] = useState("");
@@ -52,6 +54,10 @@ export default function HomeScreen() {
         getTrackingByParticipant(participant_username),
       ]);
 
+      if (projectData.length === 0) {
+        throw new Error("Project not found.");
+      }
+
       setProject(projectData[0]);
       setLocations(locationsData);
       setTracking(trackingData);
@@ -63,6 +69,30 @@ export default function HomeScreen() {
         0
       );
       setMaxScore(totalMaxScore);
+
+      // Filter tracking data for the current project
+      const projectTrackingData = trackingData.filter(
+        (entry) => entry.project_id === parseInt(projectId, 10)
+      );
+
+      // Calculate total score and visited locations based on tracking data
+      const visitedLocationIds = projectTrackingData.map(
+        (entry) => entry.location_id
+      );
+
+      setVisitedLocations(visitedLocationIds);
+
+      const totalScoreFromTracking = projectTrackingData.reduce((sum, entry) => {
+        return sum + (entry.points || 0);
+      }, 0);
+
+      setTotalScore(totalScoreFromTracking);
+
+      // Populate visitedLocationsData with location details
+      const visitedData = locationsData.filter((loc) =>
+        visitedLocationIds.includes(loc.id)
+      );
+      setVisitedLocationsData(visitedData);
     } catch (err) {
       setError("Error fetching data.");
       console.error("Error fetching project or locations:", err);
@@ -72,12 +102,19 @@ export default function HomeScreen() {
     }
   }, [projectId]); // Include projectId in the dependency array
 
-  // Update useEffect to depend on fetchData
+  // useFocusEffect to refresh data every time the screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
+
+  // Initial data fetch
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Update onRefresh to depend on fetchData
+  // Pull-to-refresh handler
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchData();
@@ -115,10 +152,10 @@ export default function HomeScreen() {
   }, [locations, visitedLocations]);
 
   const handleLocationUpdate = async (userCoords) => {
-    const radius = 50;
+    const radius = 50; // Radius in meters to consider as 'at location'
     for (const loc of locations) {
       if (visitedLocations.includes(loc.id)) {
-        continue;
+        continue; // Skip if already visited
       }
 
       const [latStr, lonStr] = loc.location_position
@@ -137,49 +174,57 @@ export default function HomeScreen() {
 
       if (distance <= radius) {
         console.log(`User has arrived at location ${loc.location_name}`);
-        setVisitedLocations((prev) => [...prev, loc.id]);
-        setTotalScore((prev) => prev + (loc.score_points || 0));
+
+        // Send tracking data
+        await sendTrackingData(projectId, loc.id, loc.score_points);
+
+        // Refresh data to update score and visited locations
+        await fetchData();
+
+        // Display location content
         setCurrentLocationContent(loc.location_content);
         setModalVisible(true);
-        await sendTrackingData(projectId, loc.id, loc.score_points);
       }
     }
   };
 
-  // Update sendTrackingData function
-const sendTrackingData = async (projectID, locationID, score_points) => {
-  try {
-    const participant_username =
-      (await AsyncStorage.getItem("username")) || "guest";
-    const username = "s4582256"; // Replace with your actual username
+  const sendTrackingData = async (projectID, locationID, score_points) => {
+    try {
+      const participant_username =
+        (await AsyncStorage.getItem("username")) || "guest";
+      const username = "s4582256"; // Replace with your actual username
 
-    // Define tracking data structure
-    const trackingData = {
-      project_id: projectID,
-      location_id: locationID,
-      points: score_points,
-      username: username,
-      participant_username: participant_username,
-    };
+      // Ensure IDs are integers
+      const projectIDInt = parseInt(projectID, 10);
+      const locationIDInt = parseInt(locationID, 10);
 
-    // Fetch existing tracking entry for the project, location, and participant
-    const existingTrackingEntries = await getTrackingEntry(
-      participant_username,
-      projectID,
-      locationID
-    );
+      // Define tracking data structure
+      const trackingData = {
+        project_id: projectIDInt,
+        location_id: locationIDInt,
+        points: score_points,
+        username: username,
+        participant_username: participant_username,
+      };
 
-    // Only create a new tracking entry if none exists
-    if (existingTrackingEntries.length === 0) {
-      console.log("Creating new tracking data entry:", trackingData);
-      await createTracking(trackingData);
-    } else {
-      console.log("Tracking entry already exists, skipping creation.");
+      // Fetch existing tracking entry for the project, location, and participant
+      const existingTrackingEntries = await getTrackingEntry(
+        participant_username,
+        projectIDInt,
+        locationIDInt
+      );
+
+      // Only create a new tracking entry if none exists
+      if (existingTrackingEntries.length === 0) {
+        console.log("Creating new tracking data entry:", trackingData);
+        await createTracking(trackingData);
+      } else {
+        console.log("Tracking entry already exists, skipping creation.");
+      }
+    } catch (error) {
+      console.error("Error sending tracking data:", error);
     }
-  } catch (error) {
-    console.error("Error sending tracking data:", error);
-  }
-};
+  };
 
   const closeModal = () => {
     setModalVisible(false);
@@ -245,6 +290,23 @@ const sendTrackingData = async (projectID, locationID, score_points) => {
             Locations Visited: {visitedLocations.length}/{locations.length}
           </Text>
         </View>
+
+        {/* Display location_content for each visited location */}
+        {visitedLocationsData.length > 0 && (
+          <View style={styles.visitedLocationsContainer}>
+            <Text style={styles.visitedLocationsTitle}>Visited Locations</Text>
+            {visitedLocationsData.map((loc) => (
+              <View key={loc.id} style={styles.webViewContainer}>
+                <Text style={styles.locationName}>{loc.location_name}</Text>
+                <WebView
+                  originWhitelist={['*']}
+                  source={{ html: loc.location_content }}
+                  style={styles.webView}
+                />
+              </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
 
       {loading && (
@@ -344,5 +406,29 @@ const styles = StyleSheet.create({
   sectionContent: {
     fontSize: 16,
     marginBottom: 4,
+  },
+  visitedLocationsContainer: {
+    marginTop: 24,
+  },
+  visitedLocationsTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 12,
+  },
+  webViewContainer: {
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  locationName: {
+    fontSize: 16,
+    fontWeight: "bold",
+    padding: 8,
+    backgroundColor: "#f0f0f0",
+  },
+  webView: {
+    height: 200, // Adjust height as needed
   },
 });
