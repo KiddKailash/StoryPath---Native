@@ -9,6 +9,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { getProjects } from "../api/project-crud-commands";
 import { getParticipantCountByProject } from "../api/tracking-crud-commands";
 
@@ -21,6 +22,7 @@ export default function ProjectsList() {
   // Function to fetch projects and participant counts
   const fetchProjects = async () => {
     try {
+      setLoading(true);
       const projectsData = await getProjects();
       const publishedProjects = projectsData.filter(
         (project) => project.is_published === true
@@ -43,9 +45,12 @@ export default function ProjectsList() {
     }
   };
 
-  useEffect(() => {
-    fetchProjects();
-  }, []);
+  // Re-fetch projects each time the screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      fetchProjects();
+    }, [])
+  );
 
   // Handle pull-to-refresh
   const onRefresh = useCallback(() => {
