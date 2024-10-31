@@ -7,7 +7,7 @@ import {
   Button,
   Modal,
 } from "react-native";
-import { Camera } from "expo-camera";
+import { CameraView } from "expo-camera";
 import { WebView } from "react-native-webview";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams } from "expo-router";
@@ -29,7 +29,7 @@ export default function QrCodeScanner() {
   // Request camera permissions on component mount
   useEffect(() => {
     (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
+      const { status } = await CameraView.requestCameraPermissionsAsync();
       setHasPermission(status === "granted");
     })();
   }, []);
@@ -52,7 +52,7 @@ export default function QrCodeScanner() {
         </Text>
         <Button
           onPress={() => {
-            Camera.requestCameraPermissionsAsync().then(({ status }) =>
+            CameraView.requestCameraPermissionsAsync().then(({ status }) =>
               setHasPermission(status === "granted")
             );
           }}
@@ -147,7 +147,7 @@ export default function QrCodeScanner() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Camera
+      <CameraView
         style={styles.camera}
         type={Camera.Constants.Type.back}
         onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
@@ -175,7 +175,7 @@ export default function QrCodeScanner() {
             <View style={styles.sideOverlay} />
           </View>
         </View>
-      </Camera>
+      </CameraView>
 
       {modalVisible && (
         <Modal
