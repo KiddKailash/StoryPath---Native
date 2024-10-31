@@ -55,7 +55,7 @@ export default function ProjectsList() {
 
   // Function to navigate to project details or screens
   const navigateToProject = (projectId) => {
-    router.push(`/(tabs)/${projectId}/home`);
+    router.push(`/${projectId}/home`);
   };
 
   if (loading) {

@@ -8,8 +8,8 @@ import {
   SafeAreaView,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
-import { getProjectById } from "../../../api/project-crud-commands";
-import { getLocationsByProjectID } from "../../../api/location-crud-commands";
+import { getProjectById } from "../../api/project-crud-commands";
+import { getLocationsByProjectID } from "../../api/location-crud-commands";
 
 export default function HomeScreen() {
   const { projectId } = useLocalSearchParams();

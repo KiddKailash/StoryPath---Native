@@ -12,8 +12,8 @@ import { WebView } from "react-native-webview";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Corrected imports
-import { getLocationsByProjectID } from "../../../api/location-crud-commands";
-import { createTracking } from "../../../api/tracking-crud-commands";
+import { getLocationsByProjectID } from "../../api/location-crud-commands";
+import { createTracking } from "../../api/tracking-crud-commands";
 
 export default function QrCodeScanner() {
   const isProcessingRef = useRef(false);
