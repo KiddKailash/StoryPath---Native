@@ -1,5 +1,5 @@
 import React from "react";
-import { Tabs } from "expo-router";
+import { Tabs, useLocalSearchParams } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { Button } from "react-native";
 import { useNavigation } from "expo-router";
@@ -15,7 +15,9 @@ const HeaderLeftButton = () => {
   );
 };
 
-export default function Project() {
+export default function Layout() {
+  const { projectId } = useLocalSearchParams();
+
   return (
     <Tabs
       screenOptions={{
@@ -31,6 +33,7 @@ export default function Project() {
           tabBarLabel: "Overview",
           headerTitle: "Overview",
         }}
+        initialParams={{ projectId }}
       />
       <Tabs.Screen
         name="map"
@@ -41,6 +44,7 @@ export default function Project() {
           tabBarLabel: "Map",
           headerTitle: "Map",
         }}
+        initialParams={{ projectId }}
       />
       <Tabs.Screen
         name="qrScanner"
@@ -51,6 +55,7 @@ export default function Project() {
           tabBarLabel: "QR Scanner",
           headerTitle: "QR Scanner",
         }}
+        initialParams={{ projectId }}
       />
     </Tabs>
   );

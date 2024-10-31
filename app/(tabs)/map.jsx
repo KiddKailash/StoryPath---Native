@@ -1,23 +1,19 @@
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import MapView, { Marker } from "react-native-maps";
-import React, { useState, useEffect } from "react";
+import { useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
 import { getDistance, convertDistance } from "geolib";
+import { getLocationsByProjectID } from "../../api/location-crud-commands";
 
 export default function Map() {
-  const [userLocation, setLocation] = useState(null);
+  const { projectId } = useLocalSearchParams();
+  console.log("Map projectId:", projectId);
+
+  const [userLocation, setUserLocation] = useState(null);
+  const [locations, setLocations] = useState([]);
   const [errorMsg, setErrorMsg] = useState(null);
-
-  const getDistanceToLocation = (userLocation) => {
-    // Example: UQ Great Court
-    const destination = {
-      latitude: -27.49763309197018,
-      longitude: 153.01291742634757,
-    };
-    const distance = getDistance(userLocation, destination);
-
-    return convertDistance(distance, "km"); // convert to kilometers
-  };
+  const [loadingLocations, setLoadingLocations] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -29,7 +25,7 @@ export default function Map() {
         }
 
         let loc = await Location.getCurrentPositionAsync({});
-        setLocation(loc.coords);
+        setUserLocation(loc.coords);
         console.log("User location:", loc.coords);
       } catch (error) {
         setErrorMsg("Error getting location");
@@ -37,6 +33,25 @@ export default function Map() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        const locationsData = await getLocationsByProjectID(projectId);
+        setLocations(locationsData);
+        setLoadingLocations(false);
+        console.log("Fetched locations:", locationsData);
+      } catch (error) {
+        console.error("Error fetching locations:", error);
+        setErrorMsg("Error fetching locations");
+        setLoadingLocations(false);
+      }
+    };
+
+    if (projectId) {
+      fetchLocations();
+    }
+  }, [projectId]);
 
   if (errorMsg) {
     return (
@@ -46,7 +61,7 @@ export default function Map() {
     );
   }
 
-  if (!userLocation) {
+  if (!userLocation || loadingLocations) {
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color="#0000ff" />
@@ -74,15 +89,23 @@ export default function Map() {
           title="Your Location"
           description="This is where you are"
         />
-        {/* UQ Great Court Marker */}
-        <Marker
-          coordinate={{
-            latitude: -27.49763309197018,
-            longitude: 153.01291742634757,
-          }}
-          title="UQ Great Court"
-          description="University of Queensland, Great Court"
-        />
+        {/* Project Locations Markers */}
+        {locations.map((location) => {
+          const [latitude, longitude] = location.location_position
+            .replace("(", "")
+            .replace(")", "")
+            .split(",")
+            .map(Number);
+
+          return (
+            <Marker
+              key={location.id}
+              coordinate={{ latitude, longitude }}
+              title={location.location_name}
+              description={location.clue}
+            />
+          );
+        })}
       </MapView>
     </View>
   );

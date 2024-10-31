@@ -7,34 +7,29 @@ import {
   Button,
   Modal,
 } from "react-native";
-import { CameraView, useCameraPermissions } from "expo-camera"; // Using CameraView as per your request
+import { Camera } from "expo-camera";
 import { WebView } from "react-native-webview";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
-// Corrected imports
+import { useLocalSearchParams } from "expo-router";
 import { getLocationsByProjectID } from "../../api/location-crud-commands";
 import { createTracking } from "../../api/tracking-crud-commands";
 
 export default function QrCodeScanner() {
+  const { projectId } = useLocalSearchParams();
+  console.log("QR Scanner projectId:", projectId);
+
   const isProcessingRef = useRef(false);
-  const [hasPermission, requestPermission] = useCameraPermissions();
+  const [hasPermission, setHasPermission] = useState(null);
   const [scanned, setScanned] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [locationContent, setLocationContent] = useState("");
+  const [cameraRef, setCameraRef] = useState(null);
 
   // Request camera permissions on component mount
   useEffect(() => {
     (async () => {
-      if (hasPermission === null) {
-        console.log("Requesting camera permissions...");
-        const { status } = await requestPermission();
-        console.log("Camera permissions:", status === "granted");
-      } else {
-        console.log(
-          "Camera permissions already determined:",
-          hasPermission.granted
-        );
-      }
+      const { status } = await Camera.requestCameraPermissionsAsync();
+      setHasPermission(status === "granted");
     })();
   }, []);
 
@@ -47,14 +42,21 @@ export default function QrCodeScanner() {
     );
   }
 
-  if (!hasPermission.granted) {
+  if (!hasPermission) {
     console.log("Camera permission not granted");
     return (
       <SafeAreaView style={styles.permissionContainer}>
         <Text style={styles.message}>
           We need your permission to access the camera
         </Text>
-        <Button onPress={requestPermission} title="Grant Permission" />
+        <Button
+          onPress={() => {
+            Camera.requestCameraPermissionsAsync().then(({ status }) =>
+              setHasPermission(status === "granted")
+            );
+          }}
+          title="Grant Permission"
+        />
       </SafeAreaView>
     );
   }
@@ -65,18 +67,28 @@ export default function QrCodeScanner() {
       return;
     }
     isProcessingRef.current = true;
+    setScanned(true);
 
     console.log("QR code scanned with data:", data);
 
     try {
       // Parse the scanned data
       const qrData = data.split(",");
-      const [projectID, locationID] = qrData;
+      const [scannedProjectId, locationID] = qrData;
+
+      // Ensure the scanned QR code matches the current project
+      if (scannedProjectId !== projectId) {
+        alert("This QR code does not belong to this project.");
+        setScanned(false);
+        isProcessingRef.current = false;
+        return;
+      }
 
       // Fetch the location content using the API function
-      const locationData = (await getLocationsByProjectID(projectID)).filter(
-        (location) => location.id.toString() === locationID
-      )[0];
+      const locationData = (
+        await getLocationsByProjectID(projectId)
+      ).find((location) => location.id.toString() === locationID);
+
       console.log("Fetched location data:", locationData);
 
       if (locationData) {
@@ -91,7 +103,7 @@ export default function QrCodeScanner() {
       }
 
       // Send tracking data using the API function
-      await sendTrackingData(projectID, locationID, locationData.score_points);
+      await sendTrackingData(projectId, locationID, locationData.score_points);
       console.log("Tracking data sent successfully");
     } catch (error) {
       console.error("Error handling scanned data:", error);
@@ -105,14 +117,14 @@ export default function QrCodeScanner() {
   const sendTrackingData = async (projectID, locationID, score_points) => {
     try {
       // Retrieve participant's username from AsyncStorage
-      const participant_username = await AsyncStorage.getItem("username");
-      const username = "s4582256";
+      const participant_username = await AsyncStorage.getItem("username") || "guest";
+      const username = "s4582256"; // Replace with appropriate username
       console.log("Participant username:", participant_username);
 
       const trackingData = {
         project_id: projectID,
         location_id: locationID,
-        points: score_points, // Update points if applicable
+        points: score_points,
         username: username,
         participant_username: participant_username,
       };
@@ -134,10 +146,13 @@ export default function QrCodeScanner() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <CameraView
+      <Camera
         style={styles.camera}
-        type="front"
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        type={Camera.Constants.Type.back}
+        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+        ref={(ref) => {
+          setCameraRef(ref);
+        }}
       >
         {/* Overlay */}
         <View style={styles.overlay}>
@@ -159,7 +174,7 @@ export default function QrCodeScanner() {
             <View style={styles.sideOverlay} />
           </View>
         </View>
-      </CameraView>
+      </Camera>
 
       {modalVisible && (
         <Modal
@@ -204,7 +219,7 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   topTextContainer: {
-    backgroundColor: "rgb(60,60,60)",
+    backgroundColor: "rgba(60,60,60,0.7)",
     marginTop: 50,
     paddingVertical: 10,
     paddingHorizontal: 10,
@@ -273,17 +288,5 @@ const styles = StyleSheet.create({
     borderRightWidth: 4,
     borderColor: "white",
     borderBottomRightRadius: 15,
-  },
-  scanResultContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "white",
-    padding: 15,
-  },
-  scanResultText: {
-    fontSize: 16,
-    marginBottom: 10,
   },
 });
