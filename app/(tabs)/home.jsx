@@ -97,7 +97,10 @@ const setProximityFlag = async (locationID) => {
   try {
     await AsyncStorage.setItem(`proximity_${locationID}`, "true");
   } catch (error) {
-    console.error(`Error setting proximity flag for location ${locationID}:`, error);
+    console.error(
+      `Error setting proximity flag for location ${locationID}:`,
+      error
+    );
   }
 };
 
@@ -106,7 +109,10 @@ const checkProximityFlag = async (locationID) => {
     const value = await AsyncStorage.getItem(`proximity_${locationID}`);
     return value === "true";
   } catch (error) {
-    console.error(`Error checking proximity flag for location ${locationID}:`, error);
+    console.error(
+      `Error checking proximity flag for location ${locationID}:`,
+      error
+    );
     return false;
   }
 };
@@ -116,7 +122,10 @@ const checkQRScanFlag = async (locationID) => {
     const value = await AsyncStorage.getItem(`qr_scanned_${locationID}`);
     return value === "true";
   } catch (error) {
-    console.error(`Error checking QR scan flag for location ${locationID}:`, error);
+    console.error(
+      `Error checking QR scan flag for location ${locationID}:`,
+      error
+    );
     return false;
   }
 };
@@ -162,57 +171,60 @@ export default function HomeScreen() {
    * This sets the initial loading state and handles errors.
    */
   const fetchInitialData = useCallback(async () => {
-    setLoading(true); // Begin loading state
-    setError(null); // Reset error state
+    setLoading(true);
+    setError(null);
     try {
       const participant_username =
-        (await AsyncStorage.getItem("username")) || "guest"; // Retrieve username or use "guest"
+        (await AsyncStorage.getItem("username")) || "guest";
       const [projectData, locationsData, trackingData] = await Promise.all([
-        getProjectById(projectId), // Fetch project data
-        getLocationsByProjectID(projectId), // Fetch all locations for project
-        getTrackingByParticipant(participant_username), // Fetch participant tracking data
+        getProjectById(projectId),
+        getLocationsByProjectID(projectId),
+        getTrackingByParticipant(participant_username),
       ]);
 
       if (projectData.length === 0) {
         throw new Error("Project not found.");
       }
 
-      setProject(projectData[0]); // Store first project data entry
-      setLocations(locationsData); // Store all location data
-      setTracking(trackingData); // Store tracking data
+      setProject(projectData[0]);
+      setLocations(locationsData);
+      setTracking(trackingData);
 
-      // Calculate max possible score by summing score_points for each location
+      // Calculate max possible score
       const totalMaxScore = locationsData.reduce(
         (sum, loc) => sum + (loc.score_points || 0),
         0
       );
-      setMaxScore(totalMaxScore); // Set maximum score
+      setMaxScore(totalMaxScore);
 
-      // Filter tracking data to include only entries for the current project
+      // Filter tracking data for the current project and eliminate duplicates by location_id
       const projectTrackingData = trackingData.filter(
         (entry) => entry.project_id === parseInt(projectId, 10)
       );
 
-      // Map visited location IDs from tracking data
-      const visitedLocationIds = projectTrackingData.map(
-        (entry) => entry.location_id
-      );
-      setVisitedLocations(visitedLocationIds); // Store visited location IDs
+      // Use a Map to ensure each location_id is only counted once
+      const uniqueTrackingData = new Map();
+      projectTrackingData.forEach((entry) => {
+        if (!uniqueTrackingData.has(entry.location_id)) {
+          uniqueTrackingData.set(entry.location_id, entry);
+        }
+      });
 
-      // Calculate total score based on tracked points
-      const totalScoreFromTracking = projectTrackingData.reduce(
-        (sum, entry) => {
-          return sum + (entry.points || 0);
-        },
-        0
-      );
-      setTotalScore(totalScoreFromTracking); // Set total score
+      // Calculate total score based on unique tracking entries
+      const totalScoreFromTracking = Array.from(
+        uniqueTrackingData.values()
+      ).reduce((sum, entry) => sum + (entry.points || 0), 0);
+      setTotalScore(totalScoreFromTracking);
 
-      // Populate visitedLocationsData array with details of each visited location
+      // Get unique visited location IDs and update state
+      const visitedLocationIds = Array.from(uniqueTrackingData.keys());
+      setVisitedLocations(visitedLocationIds);
+
+      // Populate visitedLocationsData array with unique visited location details
       const visitedData = locationsData.filter((loc) =>
         visitedLocationIds.includes(loc.id)
       );
-      setVisitedLocationsData(visitedData); // Store visited locations data
+      setVisitedLocationsData(visitedData);
 
       // Fetch participant counts for each location
       const counts = {};
@@ -224,10 +236,10 @@ export default function HomeScreen() {
       );
       setLocationParticipantCounts(counts);
     } catch (err) {
-      setError(err.message || "Error fetching data."); // Set error message
+      setError(err.message || "Error fetching data.");
     } finally {
-      setLoading(false); // End loading state
-      setRefreshing(false); // End refreshing state if it was a refresh
+      setLoading(false);
+      setRefreshing(false);
     }
   }, [projectId]);
 
@@ -373,7 +385,9 @@ export default function HomeScreen() {
                   );
                   await sendTrackingData(projectId, loc.id, loc.score_points);
                   await fetchTrackingData();
-                } else if (loc.location_trigger === "Location Entry and QR Code") {
+                } else if (
+                  loc.location_trigger === "Location Entry and QR Code"
+                ) {
                   // For 'Location Entry and QR Code', check if QR code has been scanned
                   const qrScanned = await checkQRScanFlag(loc.id);
                   if (qrScanned) {
@@ -453,7 +467,10 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.error("Error sending tracking data:", error);
-      Alert.alert("Tracking Error", "Failed to record your visit. Please try again.");
+      Alert.alert(
+        "Tracking Error",
+        "Failed to record your visit. Please try again."
+      );
     }
   };
 

@@ -150,9 +150,7 @@ export default function Map() {
           },
           async (location) => {
             const userCoords = location.coords;
-            console.log("Updated user location:", userCoords);
 
-            // Optional: Update user location state if you want real-time tracking
             setUserLocation(userCoords);
 
             // Fetch username for tracking updates
