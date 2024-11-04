@@ -324,8 +324,6 @@ export default function HomeScreen() {
           },
           async (location) => {
             const userCoords = location.coords;
-            console.log("Updated user location:", userCoords);
-
             const radius = 75; // Radius in meters for proximity check
 
             for (const loc of locations) {
