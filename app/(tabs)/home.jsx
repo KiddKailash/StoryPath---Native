@@ -24,6 +24,7 @@ import {
   createTracking,
   getTrackingByParticipant,
   getTrackingEntry,
+  getParticipantCountByLocation,
 } from "../../api/tracking-crud-commands";
 
 // Define custom CSS for WebView content
@@ -110,6 +111,9 @@ export default function HomeScreen() {
   const [currentLocationContent, setCurrentLocationContent] = useState(""); // Content of current location
   const [selectedLocationContent, setSelectedLocationContent] = useState(null); // Content for selected location
   const [modalVisible, setModalVisible] = useState(false); // Manages modal visibility
+  const [locationParticipantCounts, setLocationParticipantCounts] = useState(
+    {}
+  );
 
   // Function to fetch data from the API and AsyncStorage
   const fetchData = useCallback(async () => {
@@ -150,9 +154,12 @@ export default function HomeScreen() {
       setVisitedLocations(visitedLocationIds); // Store visited location IDs
 
       // Calculate total score based on tracked points
-      const totalScoreFromTracking = projectTrackingData.reduce((sum, entry) => {
-        return sum + (entry.points || 0);
-      }, 0);
+      const totalScoreFromTracking = projectTrackingData.reduce(
+        (sum, entry) => {
+          return sum + (entry.points || 0);
+        },
+        0
+      );
       setTotalScore(totalScoreFromTracking); // Set total score
 
       // Populate visitedLocationsData array with details of each visited location
@@ -160,6 +167,16 @@ export default function HomeScreen() {
         visitedLocationIds.includes(loc.id)
       );
       setVisitedLocationsData(visitedData); // Store visited locations data
+
+      // Fetch participant counts for each location
+      const counts = {};
+      await Promise.all(
+        locationsData.map(async (location) => {
+          const count = await getParticipantCountByLocation(location.id);
+          counts[location.id] = count;
+        })
+      );
+      setLocationParticipantCounts(counts);
     } catch (err) {
       setError(err.message || "Error fetching data."); // Set error message
     } finally {
@@ -390,8 +407,11 @@ export default function HomeScreen() {
               >
                 <View style={styles.webViewContainer}>
                   <Text style={styles.locationName}>{loc.location_name}</Text>
+                  <Text>
+                    Unlocked by {locationParticipantCounts[loc.id] || 0} user(s)
+                  </Text>
                   <WebView
-                    originWhitelist={['*']}
+                    originWhitelist={["*"]}
                     source={{ html: injectCSS(loc.location_content) }}
                     style={styles.webView}
                     scrollEnabled={false}
@@ -417,7 +437,7 @@ export default function HomeScreen() {
       )}
 
       {/* Content Modal */}
-      {(modalVisible && (currentLocationContent || selectedLocationContent)) && (
+      {modalVisible && (currentLocationContent || selectedLocationContent) && (
         <Modal
           visible={modalVisible}
           animationType="slide"
@@ -425,10 +445,11 @@ export default function HomeScreen() {
         >
           <SafeAreaView style={{ flex: 1 }}>
             <WebView
-              originWhitelist={['*']}
+              originWhitelist={["*"]}
               source={{
-                html:
-                  injectCSS(selectedLocationContent || currentLocationContent),
+                html: injectCSS(
+                  selectedLocationContent || currentLocationContent
+                ),
               }}
               style={{ flex: 1 }}
             />

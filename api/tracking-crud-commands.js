@@ -16,6 +16,34 @@ export const getAllTracking = () => apiRequest("/tracking");
 export const getTrackingByParticipant = (participantUsername) =>
   apiRequest(`/tracking?participant_username=eq.${participantUsername}`);
 
+/**
+ * Get the number of unique participants for a specific location.
+ *
+ * @param {number} locationId - The ID of the location.
+ * @returns {Promise<number>} - The number of unique participants for the location.
+ */
+export const getParticipantCountByLocation = async (locationId) => {
+  try {
+    const params = new URLSearchParams();
+    params.append("location_id", `eq.${locationId}`);
+    params.append("select", "participant_username");
+
+    const endpoint = `/tracking?${params.toString()}`;
+    const trackingData = await apiRequest(endpoint, "GET");
+
+    if (!trackingData || !Array.isArray(trackingData)) {
+      return 0;
+    }
+
+    const uniqueParticipants = new Set(
+      trackingData.map((item) => item.participant_username)
+    );
+    return uniqueParticipants.size;
+  } catch (error) {
+    console.error("Error fetching participant count by location:", error);
+    return 0;
+  }
+};
 
 /**
  * Fetch tracking entry by participant_username, project_id, and location_id.
