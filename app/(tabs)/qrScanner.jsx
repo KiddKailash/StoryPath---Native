@@ -1,106 +1,143 @@
-import React, { useState, useEffect, useRef } from "react";
-import {
-  StyleSheet,
-  SafeAreaView,
-  Text,
-  View,
-  Button,
-} from "react-native";
+import React, { useEffect, useRef, useCallback, useState } from "react";
+import { StyleSheet, SafeAreaView, Text, View, Button } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useRouter } from "expo-router"; // Importing useRouter for navigation
+import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Import API functions for handling locations and tracking data
 import { getLocationsByProjectID } from "../../api/location-crud-commands";
-import { createTracking, getTrackingEntry } from "../../api/tracking-crud-commands";
+import {
+  createTracking,
+  getTrackingEntry,
+} from "../../api/tracking-crud-commands";
+
+/**
+ * Helper functions to manage proximity and QR scan flags in AsyncStorage
+ */
+const setQRScanFlag = async (locationID) => {
+  try {
+    await AsyncStorage.setItem(`qr_scanned_${locationID}`, "true");
+  } catch (error) {
+    console.error(
+      `Error setting QR scan flag for location ${locationID}:`,
+      error
+    );
+  }
+};
+
+const checkProximityFlag = async (locationID) => {
+  try {
+    const value = await AsyncStorage.getItem(`proximity_${locationID}`);
+    return value === "true";
+  } catch (error) {
+    console.error(
+      `Error checking proximity flag for location ${locationID}:`,
+      error
+    );
+    return false;
+  }
+};
+
+const clearFlags = async (locationID) => {
+  try {
+    await AsyncStorage.removeItem(`proximity_${locationID}`);
+    await AsyncStorage.removeItem(`qr_scanned_${locationID}`);
+  } catch (error) {
+    console.error(`Error clearing flags for location ${locationID}:`, error);
+  }
+};
 
 export default function QrCodeScanner() {
-  const router = useRouter(); // Initialize router for navigation
-  const isProcessingRef = useRef(false); // Ref to prevent multiple scans
-  const [hasPermission, requestPermission] = useCameraPermissions(); // Manage camera permissions
-  const [scanned, setScanned] = useState(false); // State to manage scanning state
+  const router = useRouter();
+  const isProcessingRef = useRef(false);
+  const [hasPermission, requestPermission] = useCameraPermissions();
 
   // Request camera permissions on component mount
   useEffect(() => {
     (async () => {
       if (hasPermission === null) {
-        console.log("Requesting camera permissions...");
         const { status } = await requestPermission();
-        console.log("Camera permissions:", status === "granted");
-      } else {
-        console.log(
-          "Camera permissions already determined:",
-          hasPermission.granted
-        );
       }
     })();
-  }, []);
+  }, [hasPermission, requestPermission]);
 
-  // Render a view for requesting camera permissions if none are granted
-  if (hasPermission === null) {
-    return (
-      <SafeAreaView style={styles.permissionContainer}>
-        <Text>Requesting camera permission...</Text>
-      </SafeAreaView>
-    );
-  }
-
-  if (!hasPermission.granted) {
-    console.log("Camera permission not granted");
-    return (
-      <SafeAreaView style={styles.permissionContainer}>
-        <Text style={styles.message}>
-          We need your permission to access the camera
-        </Text>
-        <Button onPress={requestPermission} title="Grant Permission" />
-      </SafeAreaView>
-    );
-  }
-
-  // Handle QR code scanning event
-  const handleBarCodeScanned = async ({ data }) => {
-    // Prevent processing if already in progress
-    if (isProcessingRef.current) {
-      return;
-    }
-    isProcessingRef.current = true; // Mark as processing
-
-    console.log("QR code scanned with data:", data);
-
-    try {
-      // Parse the scanned QR data
-      const qrData = data.split(",");
-      const [projectID, locationID] = qrData;
-
-      // Fetch location data for the project
-      const locationData = (await getLocationsByProjectID(projectID)).find(
-        (location) => location.id.toString() === locationID
-      );
-      console.log("Fetched location data:", locationData);
-
-      if (locationData) {
-        // Send tracking data using API
-        await sendTrackingData(projectID, locationID, locationData.score_points);
-        console.log("Tracking data sent successfully");
-
-        // Navigate to home screen with locationID parameter
-        router.push({
-          pathname: "/home",
-          params: { locationID },
-        });
-      } else {
-        // Alert user if location not found
-        alert("Location not found");
-        setScanned(false); // Allow re-scanning
-        console.log("Location not found for ID:", locationID);
+  /**
+   * Handles QR code scanning event
+   */
+  const handleBarCodeScanned = useCallback(
+    async ({ data }) => {
+      if (isProcessingRef.current) {
+        return;
       }
-    } catch (error) {
-      console.error("Error handling scanned data:", error);
-      alert("Invalid QR code data"); // Notify user of invalid QR code
-    } finally {
-      isProcessingRef.current = false; // Reset processing flag
-    }
-  };
+      isProcessingRef.current = true;
+
+      try {
+        const qrData = data.split(",");
+        if (qrData.length !== 2) {
+          throw new Error("Invalid QR code format");
+        }
+        const [projectID, locationID] = qrData;
+
+        const allLocations = await getLocationsByProjectID(projectID);
+        const locationData = allLocations.find(
+          (location) => location.id.toString() === locationID
+        );
+
+        if (locationData) {
+          const { location_trigger } = locationData;
+
+          if (
+            location_trigger === "QR Code" ||
+            location_trigger === "Location Entry and QR Code"
+          ) {
+            if (location_trigger === "QR Code") {
+              // For 'QR Code' locations, track directly
+              await sendTrackingData(
+                projectID,
+                locationID,
+                locationData.score_points
+              );
+              router.push({ pathname: "/home", params: { locationID } });
+            } else if (location_trigger === "Location Entry and QR Code") {
+              // Check proximity flag for 'Location Entry and QR Code' locations
+              const proximityFlag = await checkProximityFlag(locationID);
+
+              if (proximityFlag) {
+                await sendTrackingData(
+                  projectID,
+                  locationID,
+                  locationData.score_points
+                );
+                await clearFlags(locationID);
+                router.push({ pathname: "/home", params: { locationID } });
+              } else {
+                // If not within proximity, set QR scan flag silently
+                await setQRScanFlag(locationID);
+              }
+            }
+          } else {
+            Alert.alert(
+              "Invalid QR Code",
+              "This QR code does not correspond to a QR Code triggered location."
+            );
+          }
+        } else {
+          Alert.alert(
+            "Location Not Found",
+            "The scanned QR code does not match any location."
+          );
+        }
+      } catch (error) {
+        Alert.alert(
+          "Scan Error",
+          error.message || "An error occurred while scanning."
+        );
+      } finally {
+        isProcessingRef.current = false;
+      }
+    },
+    [router]
+  );
 
   /**
    * Sends tracking data to track participant's progress at a specific location.
@@ -111,54 +148,66 @@ export default function QrCodeScanner() {
    */
   const sendTrackingData = async (projectID, locationID, score_points) => {
     try {
-      // Retrieve participant's username or use 'guest' if not set
       const participant_username =
         (await AsyncStorage.getItem("username")) || "guest";
       const username = "s4582256"; // Replace with actual username
 
-      // Define tracking data structure for API
       const trackingData = {
-        project_id: projectID,
-        location_id: locationID,
+        project_id: parseInt(projectID, 10),
+        location_id: parseInt(locationID, 10),
         points: score_points,
         username: username,
         participant_username: participant_username,
       };
 
-      // Fetch existing tracking entries for location and participant
       const existingTrackingEntries = await getTrackingEntry(
         participant_username,
-        projectID,
-        locationID
+        trackingData.project_id,
+        trackingData.location_id
       );
 
-      // Only create a new tracking entry if none exists
       if (existingTrackingEntries.length === 0) {
-        console.log("Creating new tracking data entry:", trackingData);
-        await createTracking(trackingData); // Create new tracking entry
-      } else {
-        console.log("Tracking entry already exists, skipping creation.");
+        await createTracking(trackingData);
       }
     } catch (error) {
-      console.error("Error sending tracking data:", error);
+      Alert.alert(
+        "Tracking Error",
+        "Failed to record your visit. Please try again."
+      );
     }
   };
 
+  // Handle camera permissions status
+  if (hasPermission === null) {
+    return (
+      <SafeAreaView style={styles.permissionContainer}>
+        <Text>Requesting camera permission...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!hasPermission.granted) {
+    return (
+      <SafeAreaView style={styles.permissionContainer}>
+        <Text style={styles.message}>
+          We need your permission to access the camera
+        </Text>
+        <Button onPress={requestPermission} title="Grant Permission" />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Camera View for scanning QR codes */}
       <CameraView
         style={styles.camera}
         type="front"
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned} // Disable scanner if already scanned
+        onBarcodeScanned={handleBarCodeScanned}
       >
-        {/* Overlay with instructional text */}
         <View style={styles.overlay}>
           <View style={styles.topTextContainer}>
             <Text style={styles.topText}>Find a code to scan</Text>
           </View>
-
-          {/* Centered focus frame for QR code */}
           <View style={styles.middleRow}>
             <View style={styles.sideOverlay} />
             <View style={styles.focusedContainer}>
@@ -175,33 +224,16 @@ export default function QrCodeScanner() {
   );
 }
 
-// Styling constants and styles for components
-const overlayColor = "rgba(0,0,0,0.5)"; // Semi-transparent black for overlay
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-  },
+  container: { flex: 1, justifyContent: "center" },
   permissionContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  message: {
-    textAlign: "center",
-    paddingBottom: 10,
-  },
-  camera: {
-    flex: 1,
-  },
-  overlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
+  message: { textAlign: "center", paddingBottom: 10 },
+  camera: { flex: 1 },
+  overlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   topTextContainer: {
     backgroundColor: "rgb(60,60,60)",
     marginTop: 50,
@@ -211,24 +243,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     alignSelf: "center",
   },
-  topText: {
-    color: "#fff",
-    fontSize: 18,
-  },
-  middleRow: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  sideOverlay: {
-    flex: 1,
-    backgroundColor: overlayColor,
-  },
-  focusedContainer: {
-    width: 250,
-    height: 250,
-    position: "relative",
-  },
+  topText: { color: "#fff", fontSize: 18 },
+  middleRow: { flex: 1, flexDirection: "row", alignItems: "center" },
+  sideOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)" },
+  focusedContainer: { width: 250, height: 250, position: "relative" },
   topLeftCorner: {
     position: "absolute",
     top: -40,

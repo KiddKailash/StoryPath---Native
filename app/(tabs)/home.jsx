@@ -111,14 +111,6 @@ const checkProximityFlag = async (locationID) => {
   }
 };
 
-const setQRScanFlag = async (locationID) => {
-  try {
-    await AsyncStorage.setItem(`qr_scanned_${locationID}`, "true");
-  } catch (error) {
-    console.error(`Error setting QR scan flag for location ${locationID}:`, error);
-  }
-};
-
 const checkQRScanFlag = async (locationID) => {
   try {
     const value = await AsyncStorage.getItem(`qr_scanned_${locationID}`);
@@ -163,7 +155,7 @@ export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false); // Manages modal visibility
   const [locationParticipantCounts, setLocationParticipantCounts] = useState(
     {}
-  ); // Tracks the number of participants who have 'unlocked' a location
+  ); // Tracks the number of participants who have 'triggered' a location
 
   /**
    * Function to fetch initial data: project details, locations, and tracking data.
