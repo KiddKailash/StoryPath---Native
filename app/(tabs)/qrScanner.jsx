@@ -97,7 +97,7 @@ export default function QrCodeScanner() {
                 locationID,
                 locationData.score_points
               );
-              router.push({ pathname: "/home", params: { locationID } });
+              router.push({ pathname: "/project", params: { locationID } });
             } else if (location_trigger === "Location Entry and QR Code") {
               // Check proximity flag for 'Location Entry and QR Code' locations
               const proximityFlag = await checkProximityFlag(locationID);
@@ -109,7 +109,7 @@ export default function QrCodeScanner() {
                   locationData.score_points
                 );
                 await clearFlags(locationID);
-                router.push({ pathname: "/home", params: { locationID } });
+                router.push({ pathname: "/project", params: { locationID } });
               } else {
                 // If not within proximity, set QR scan flag silently
                 await setQRScanFlag(locationID);
