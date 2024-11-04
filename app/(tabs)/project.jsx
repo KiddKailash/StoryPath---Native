@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f9f9f9", // Optional: background color for better visibility
   },
   webView: {
-    height: 200,
+    height: 'auto',
   },
   loaderContainer: {
     flex: 1,
