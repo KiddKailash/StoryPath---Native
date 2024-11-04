@@ -1,8 +1,7 @@
-// about.jsx
-
-import { View, Text, Button, StyleSheet } from 'react-native';
-import React from 'react';
-import { useRouter } from 'expo-router';
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import React from "react";
+import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 
 /**
  * About component displays information about the application.
@@ -15,18 +14,26 @@ export default function About() {
   return (
     <View style={styles.container}>
       {/* Title of the About page */}
-      <Text style={styles.title}>About Page</Text>
-      
+      <Text style={styles.title}>About Story Path</Text>
+
       {/* Description of the app */}
       <Text style={styles.description}>
-        This app is designed to provide users with insights into various projects,
-        allowing them to explore details, track progress, and stay updated with the
-        latest information. Built with React Native and Expo, it’s optimized for a
-        smooth user experience across multiple platforms.
+        Welcome to Story Path, your companion for exploring unique projects and
+        tracking your journey. Our app allows you to dive deep into project
+        details, monitor your progress, and stay informed with the latest
+        updates. Created with React Native and Expo, Story Path is optimized for
+        a seamless experience on any device.
       </Text>
-      
+
+      {/* Additional section to introduce the app’s purpose */}
+      <Text style={styles.highlightText}>
+        Our Mission: Bringing stories to life, one project at a time.
+      </Text>
+
       {/* Button to navigate back to the previous screen */}
-      <Button onPress={() => router.back()} title='Go Back' />
+      <TouchableOpacity onPress={() => router.back()} style={styles.button}>
+        <Text style={styles.buttonText}>Go Back</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -37,20 +44,41 @@ export default function About() {
 const styles = StyleSheet.create({
   container: {
     flex: 1, // Enables flex layout
-    justifyContent: 'center', // Centers content vertically
-    alignItems: 'center', // Centers content horizontally
-    padding: 20, // Adds padding around the container
-    backgroundColor: '#f5f5f5', // Sets the background color
+    justifyContent: "center", // Centers content vertically
+    alignItems: "center", // Centers content horizontally
+    padding: 30, // Adds padding around the container
   },
   title: {
-    fontSize: 24, // Sets the font size for the title
-    fontWeight: 'bold', // Makes the title text bold
-    marginBottom: 10, // Adds margin below the title
+    fontSize: 28, // Sets the font size for the title
+    fontWeight: "700", // Makes the title text bold
+    color: "#333", // Darker color for better contrast
+    marginBottom: 20, // Adds margin below the title
+    textAlign: "center", // Centers the title
   },
   description: {
-    fontSize: 16, // Sets the font size for the description
-    color: '#555', // Sets the text color for the description
-    textAlign: 'center', // Centers the text
-    marginBottom: 20, // Adds margin below the description
+    fontSize: 18, // Sets the font size for the description
+    color: "#555", // Sets the text color for the description
+    textAlign: "center", // Centers the text
+    lineHeight: 26, // Adds line spacing for readability
+    marginBottom: 30, // Adds margin below the description
+  },
+  highlightText: {
+    fontSize: 16, // Font size for the highlighted text
+    color: "#1a73e8", // Accent color
+    fontWeight: "500", // Semi-bold font weight for emphasis
+    textAlign: "center", // Centers the text
+    marginBottom: 40, // Adds margin below the highlight text
+  },
+  button: {
+    backgroundColor: "#1a73e8", // Button background color
+    paddingVertical: 12, // Vertical padding for button
+    paddingHorizontal: 24, // Horizontal padding for button
+    borderRadius: 8, // Rounded corners for the button
+    alignItems: "center", // Centers text inside the button
+  },
+  buttonText: {
+    color: "#fff", // White text color for the button
+    fontSize: 16, // Sets font size for button text
+    fontWeight: "bold", // Bold font for button text
   },
 });

@@ -12,7 +12,9 @@ import {
 } from "../../api/tracking-crud-commands";
 
 /**
- * Helper functions to manage proximity and QR scan flags in AsyncStorage
+ * Sets a flag in AsyncStorage to indicate that a QR code was scanned for a specific location.
+ * 
+ * @param {string} locationID - The ID of the location for which the QR scan flag is being set.
  */
 const setQRScanFlag = async (locationID) => {
   try {
@@ -25,6 +27,12 @@ const setQRScanFlag = async (locationID) => {
   }
 };
 
+/**
+ * Checks if the proximity flag is set for a specific location, indicating if the user is within range.
+ * 
+ * @param {string} locationID - The ID of the location to check proximity status.
+ * @returns {boolean} - Returns true if proximity flag is set, otherwise false.
+ */
 const checkProximityFlag = async (locationID) => {
   try {
     const value = await AsyncStorage.getItem(`proximity_${locationID}`);
@@ -38,6 +46,11 @@ const checkProximityFlag = async (locationID) => {
   }
 };
 
+/**
+ * Clears both the proximity and QR scan flags for a specific location in AsyncStorage.
+ * 
+ * @param {string} locationID - The ID of the location for which flags are being cleared.
+ */
 const clearFlags = async (locationID) => {
   try {
     await AsyncStorage.removeItem(`proximity_${locationID}`);
@@ -47,6 +60,12 @@ const clearFlags = async (locationID) => {
   }
 };
 
+/**
+ * Main component for the QR Code Scanner screen. Requests camera permissions, handles QR code scanning events,
+ * and navigates the user based on the scanned data and location triggers.
+ * 
+ * @returns {JSX.Element} - The rendered component for QR Code Scanner.
+ */
 export default function QrCodeScanner() {
   const router = useRouter();
   const isProcessingRef = useRef(false);
@@ -62,7 +81,10 @@ export default function QrCodeScanner() {
   }, [hasPermission, requestPermission]);
 
   /**
-   * Handles QR code scanning event
+   * Handles QR code scanning event by validating the scanned data, checking the location trigger, 
+   * and setting flags or sending tracking data as needed.
+   * 
+   * @param {object} data - The data object from the QR code scan event.
    */
   const handleBarCodeScanned = useCallback(
     async ({ data }) => {
@@ -140,8 +162,9 @@ export default function QrCodeScanner() {
   );
 
   /**
-   * Sends tracking data to track participant's progress at a specific location.
-   *
+   * Sends tracking data for a specific location to record the user's progress, 
+   * avoiding duplicate entries if tracking data already exists.
+   * 
    * @param {string} projectID - ID of the project.
    * @param {string} locationID - ID of the scanned location.
    * @param {number} score_points - Points awarded for visiting the location.
@@ -150,7 +173,7 @@ export default function QrCodeScanner() {
     try {
       const participant_username =
         (await AsyncStorage.getItem("username")) || "guest";
-      const username = "s4582256"; // Replace with actual username
+      const username = "s4582256";
 
       const trackingData = {
         project_id: parseInt(projectID, 10),

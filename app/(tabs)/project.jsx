@@ -436,7 +436,7 @@ export default function Project() {
     try {
       const participant_username =
         (await AsyncStorage.getItem("username")) || "guest";
-      const username = "s4582256"; // Replace with actual username
+      const username = "s4582256";
 
       // Ensure IDs are integers for API call
       const projectIDInt = parseInt(projectID, 10);
