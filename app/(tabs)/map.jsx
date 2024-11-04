@@ -20,9 +20,10 @@ import {
  * @return {JSX.Element} - The rendered Map component.
  */
 export default function Map() {
-  const { projectId } = useLocalSearchParams();
+  const { projectId } = useLocalSearchParams(); // Get project ID from route parameters
   console.log("Map projectId:", projectId);
 
+  // State variables
   const [userLocation, setUserLocation] = useState(null);
   const [locations, setLocations] = useState([]);
   const [visitedLocationsData, setVisitedLocationsData] = useState([]);
@@ -31,16 +32,18 @@ export default function Map() {
   const [errorMsg, setErrorMsg] = useState(null);
 
   /**
-   * Fetches user location.
+   * Fetches user's current location.
    */
   const fetchUserLocation = useCallback(async () => {
     try {
+      // Request location permissions
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         setErrorMsg("Permission to access location was denied");
         return;
       }
 
+      // Get current location
       let loc = await Location.getCurrentPositionAsync({});
       setUserLocation(loc.coords);
       console.log("User location:", loc.coords);
@@ -51,10 +54,11 @@ export default function Map() {
   }, []);
 
   /**
-   * Fetches project locations.
+   * Fetches locations associated with the project.
    */
   const fetchLocations = useCallback(async () => {
     try {
+      // Get project locations from API
       const locationsData = await getLocationsByProjectID(projectId);
       setLocations(locationsData);
       console.log("Fetched locations:", locationsData);
@@ -65,27 +69,28 @@ export default function Map() {
   }, [projectId]);
 
   /**
-   * Fetches tracking data to determine visited locations.
+   * Fetches tracking data to identify visited locations.
    */
   const fetchTrackingData = useCallback(async () => {
     try {
       const participant_username =
         (await AsyncStorage.getItem("username")) || "guest";
 
+      // Get tracking data for participant
       const trackingData = await getTrackingByParticipant(participant_username);
       console.log("Tracking Data:", JSON.stringify(trackingData, null, 2));
 
-      // Filter tracking data for the current project
+      // Filter tracking data for current project
       const projectTrackingData = trackingData.filter(
         (entry) => entry.project_id === parseInt(projectId, 10)
       );
 
-      // Get visited location IDs
+      // Get IDs of visited locations
       const visitedLocationIds = projectTrackingData.map(
         (entry) => entry.location_id
       );
 
-      // Filter locationsData to get only visited locations
+      // Filter to get details of visited locations
       const visitedData = locations.filter((loc) =>
         visitedLocationIds.includes(loc.id)
       );
@@ -97,24 +102,24 @@ export default function Map() {
   }, [projectId, locations]);
 
   /**
-   * Fetches all necessary data.
+   * Fetches all required data for the map view.
    */
   const fetchData = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      await fetchUserLocation();
-      await fetchLocations();
+      await fetchUserLocation(); // Get user's location
+      await fetchLocations(); // Get locations associated with the project
     } catch (error) {
       console.error("Error during data fetching:", error);
       setErrorMsg("Error fetching data");
     } finally {
-      setLoading(false);
+      setLoading(false); // Stop loading indicator
     }
   }, [fetchUserLocation, fetchLocations]);
 
   /**
-   * Refreshes data when the screen is focused or when pulled to refresh.
+   * Fetches data when the screen is focused or when pull-to-refresh is used.
    */
   useFocusEffect(
     useCallback(() => {
@@ -123,7 +128,7 @@ export default function Map() {
   );
 
   /**
-   * Initial data fetch.
+   * Initial data fetch when component mounts.
    */
   useEffect(() => {
     fetchData();
@@ -140,7 +145,7 @@ export default function Map() {
   }, [fetchData]);
 
   /**
-   * Watches user location and updates visited locations.
+   * Watches user's location to update visited locations when nearby.
    */
   useEffect(() => {
     let locationSubscription = null;
@@ -163,12 +168,13 @@ export default function Map() {
             const userCoords = location.coords;
             console.log("Updated user location:", userCoords);
 
-            const radius = 50; // Radius in meters to consider as 'at location'
+            const radius = 50; // Radius in meters for proximity check
             for (const loc of locations) {
               if (visitedLocationsData.some((vLoc) => vLoc.id === loc.id)) {
-                continue; // Skip if already visited
+                continue; // Skip if location has already been visited
               }
 
+              // Parse coordinates from location data
               const [latStr, lonStr] = loc.location_position
                 .replace("(", "")
                 .replace(")", "")
@@ -179,6 +185,7 @@ export default function Map() {
                 longitude: parseFloat(lonStr),
               };
 
+              // Calculate distance to the location
               const distance = getDistance(
                 { latitude: userCoords.latitude, longitude: userCoords.longitude },
                 locationCoords
@@ -188,17 +195,15 @@ export default function Map() {
                 `Distance to ${loc.location_name}: ${distance} meters`
               );
 
+              // If user is within radius, mark location as visited
               if (distance <= radius) {
                 console.log(`User has arrived at location ${loc.location_name}`);
 
-                // Send tracking data
+                // Send tracking data to server
                 await sendTrackingData(projectId, loc.id, loc.score_points);
 
-                // Fetch tracking data to update visited locations
+                // Fetch tracking data to refresh visited locations
                 await fetchTrackingData();
-
-                // Optionally, you can provide feedback here, e.g., a toast message
-                // For simplicity, we'll skip displaying content here
               }
             }
           }
@@ -211,6 +216,7 @@ export default function Map() {
 
     watchUserLocation();
 
+    // Cleanup location subscription when component unmounts
     return () => {
       if (locationSubscription) {
         locationSubscription.remove();
@@ -219,7 +225,7 @@ export default function Map() {
   }, [locations, visitedLocationsData, projectId, fetchTrackingData]);
 
   /**
-   * Sends tracking data when a location is visited.
+   * Sends tracking data for a visited location.
    *
    * @param {string} projectID - The project ID.
    * @param {number} locationID - The location ID.
@@ -229,13 +235,13 @@ export default function Map() {
     try {
       const participant_username =
         (await AsyncStorage.getItem("username")) || "guest";
-      const username = "s4582256"; // Replace with your actual username
+      const username = "s4582256"; // Replace with actual username
 
-      // Ensure IDs are integers
+      // Ensure IDs are integers for API call
       const projectIDInt = parseInt(projectID, 10);
       const locationIDInt = parseInt(locationID, 10);
 
-      // Define tracking data structure
+      // Construct tracking data payload
       const trackingData = {
         project_id: projectIDInt,
         location_id: locationIDInt,
@@ -244,14 +250,14 @@ export default function Map() {
         participant_username: participant_username,
       };
 
-      // Fetch existing tracking entry for the project, location, and participant
+      // Check for existing tracking entry to avoid duplicates
       const existingTrackingEntries = await getTrackingEntry(
         participant_username,
         projectIDInt,
         locationIDInt
       );
 
-      // Only create a new tracking entry if none exists
+      // Create tracking entry if it doesn't exist
       if (existingTrackingEntries.length === 0) {
         console.log("Creating new tracking data entry:", trackingData);
         await createTracking(trackingData);
@@ -264,9 +270,9 @@ export default function Map() {
   };
 
   /**
-   * Renders the loading indicator.
+   * Renders a loading indicator.
    *
-   * @return {JSX.Element} - The loading indicator.
+   * @return {JSX.Element} - Loading view.
    */
   const renderLoading = () => (
     <View style={styles.loaderContainer}>
@@ -276,9 +282,9 @@ export default function Map() {
   );
 
   /**
-   * Renders the error message.
+   * Renders error message if any error occurs.
    *
-   * @return {JSX.Element} - The error message.
+   * @return {JSX.Element} - Error message view.
    */
   const renderError = () => (
     <View style={styles.errorContainer}>
@@ -287,7 +293,7 @@ export default function Map() {
   );
 
   /**
-   * Determines the initial region for the map based on user location.
+   * Sets initial region of the map based on user location.
    */
   const getInitialRegion = () => {
     if (userLocation) {
@@ -298,7 +304,7 @@ export default function Map() {
         longitudeDelta: 0.05,
       };
     }
-    // Default region if user location is not available
+    // Default region if user location is unavailable
     return {
       latitude: -27.5263381,
       longitude: 153.0954163,
@@ -308,26 +314,12 @@ export default function Map() {
   };
 
   /**
-   * Handles when a location marker is pressed.
-   *
-   * @param {string} content - The HTML content of the location.
-   * @param {string} name - The name of the location.
-   */
-  const handleLocationPress = (content, name) => {
-    // Since no modals are to be used, we'll utilize Callouts to display information
-    // However, Callouts are handled by the Marker component itself
-    // If additional functionality is needed, consider navigating to a detail screen
-    // For simplicity, we'll rely on Callouts here
-    // This function can be used if additional actions are desired in the future
-  };
-
-  /**
-   * Renders the map with markers.
+   * Renders the map with markers for user's and visited locations.
    */
   const renderMap = () => (
     <View style={styles.container}>
       <MapView style={styles.map} initialRegion={getInitialRegion()}>
-        {/* User's Location Marker */}
+        {/* Marker for user's current location */}
         <Marker
           coordinate={{
             latitude: userLocation.latitude,
@@ -338,7 +330,7 @@ export default function Map() {
           pinColor="blue"
         />
 
-        {/* Visited Locations Markers */}
+        {/* Markers for visited locations */}
         {visitedLocationsData.length > 0 &&
           visitedLocationsData.map((loc) => {
             const [latitude, longitude] = loc.location_position
@@ -355,7 +347,7 @@ export default function Map() {
                 description={loc.clue || "No clue provided"}
                 pinColor="green"
               >
-                {/* Callout to display location details */}
+                {/* Callout with location details */}
                 <Callout>
                   <View style={styles.calloutContainer}>
                     <Text style={styles.calloutTitle}>{loc.location_name}</Text>
@@ -371,7 +363,7 @@ export default function Map() {
     </View>
   );
 
-  // Render based on state
+  // Render based on loading, error, or map display state
   if (errorMsg) {
     return renderError();
   }

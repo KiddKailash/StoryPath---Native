@@ -2,27 +2,40 @@ import React from 'react';
 import { View, Text, Image, StyleSheet, Button } from 'react-native';
 import { useRouter } from 'expo-router';
 
+/**
+ * Index component serves as the home screen of the application.
+ * It displays the app icon, title, a welcome message, and navigation buttons
+ * to the Profile and Projects List screens.
+ *
+ * @returns {JSX.Element} The rendered Index component.
+ */
 export default function Index() {
-  const router = useRouter();
+  const router = useRouter(); // Hook to access the router for navigation
 
+  /**
+   * navigateToProfile navigates the user to the Profile screen.
+   */
   const navigateToProfile = () => {
-    router.push('/profile');
+    router.push('/profile'); // Navigate to the Profile screen
   };
 
+  /**
+   * navigateToProjectsList navigates the user to the Projects List screen.
+   */
   const navigateToProjectsList = () => {
-    router.push('/projectsList');
+    router.push('/projectsList'); // Navigate to the Projects List screen
   };
 
   return (
     <View style={styles.container}>
-      {/* Display the image */}
+      {/* Display the application icon */}
       <Image
-        source={require('../assets/images/storypath-icon.png')} // Make sure to add an image in the assets folder
-        style={styles.image}
-        resizeMode="contain"
+        source={require('../assets/images/storypath-icon.png')} // Path to the icon image
+        style={styles.image} // Apply styling to the image
+        resizeMode="contain" // Ensure the image scales uniformly
       />
 
-      {/* Display the title text */}
+      {/* Display the application title */}
       <Text style={styles.title}>Story Path</Text>
 
       {/* Display the welcome message */}
@@ -30,47 +43,55 @@ export default function Index() {
         Explore amazing projects and create your own stories!
       </Text>
 
-      {/* Buttons to navigate to Profile and Projects List */}
+      {/* Container for navigation buttons */}
       <View style={styles.buttonContainer}>
+        {/* Button to navigate to the Profile screen */}
         <Button title="Go to Profile" onPress={navigateToProfile} />
+
+        {/* Spacer between buttons */}
         <View style={styles.buttonSpacing} />
+
+        {/* Button to navigate to the Projects List screen */}
         <Button title="View Projects" onPress={navigateToProjectsList} />
       </View>
     </View>
   );
 }
 
+/**
+ * styles defines the styling for the Index component.
+ */
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 16,
-    marginTop: -50, // Adjust if needed to center content vertically
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff', // Set background color if desired
+    flex: 1, // Enables flex layout to fill the screen
+    padding: 16, // Adds padding around the container
+    marginTop: -50, // Adjusts the top margin to center content vertically
+    justifyContent: 'center', // Centers content vertically
+    alignItems: 'center', // Centers content horizontally
+    backgroundColor: '#fff', // Sets the background color to white
   },
   image: {
-    width: 200,
-    height: 200,
-    marginBottom: 24,
-    borderRadius: 30
+    width: 200, // Sets the width of the image
+    height: 200, // Sets the height of the image
+    marginBottom: 24, // Adds margin below the image
+    borderRadius: 30, // Rounds the corners of the image
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
+    fontSize: 28, // Sets the font size for the title
+    fontWeight: 'bold', // Makes the title text bold
+    marginBottom: 12, // Adds margin below the title
+    textAlign: 'center', // Centers the text horizontally
   },
   message: {
-    fontSize: 16,
-    marginBottom: 24,
-    textAlign: 'center',
-    color: '#555',
+    fontSize: 16, // Sets the font size for the message
+    marginBottom: 24, // Adds margin below the message
+    textAlign: 'center', // Centers the text horizontally
+    color: '#555', // Sets the text color to a dark gray
   },
   buttonContainer: {
-    width: '80%',
+    width: '80%', // Sets the width of the button container to 80% of the parent
   },
   buttonSpacing: {
-    height: 12, // Space between buttons
+    height: 12, // Adds vertical space between the buttons
   },
 });

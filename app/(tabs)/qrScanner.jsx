@@ -10,15 +10,15 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router"; // Importing useRouter for navigation
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Corrected imports
+// Import API functions for handling locations and tracking data
 import { getLocationsByProjectID } from "../../api/location-crud-commands";
 import { createTracking, getTrackingEntry } from "../../api/tracking-crud-commands";
 
 export default function QrCodeScanner() {
   const router = useRouter(); // Initialize router for navigation
-  const isProcessingRef = useRef(false);
-  const [hasPermission, requestPermission] = useCameraPermissions();
-  const [scanned, setScanned] = useState(false);
+  const isProcessingRef = useRef(false); // Ref to prevent multiple scans
+  const [hasPermission, requestPermission] = useCameraPermissions(); // Manage camera permissions
+  const [scanned, setScanned] = useState(false); // State to manage scanning state
 
   // Request camera permissions on component mount
   useEffect(() => {
@@ -36,7 +36,7 @@ export default function QrCodeScanner() {
     })();
   }, []);
 
-  // Handle camera permission states
+  // Render a view for requesting camera permissions if none are granted
   if (hasPermission === null) {
     return (
       <SafeAreaView style={styles.permissionContainer}>
@@ -57,57 +57,66 @@ export default function QrCodeScanner() {
     );
   }
 
-  // Handle QR code scanning
+  // Handle QR code scanning event
   const handleBarCodeScanned = async ({ data }) => {
+    // Prevent processing if already in progress
     if (isProcessingRef.current) {
       return;
     }
-    isProcessingRef.current = true;
+    isProcessingRef.current = true; // Mark as processing
 
     console.log("QR code scanned with data:", data);
 
     try {
-      // Parse the scanned data
+      // Parse the scanned QR data
       const qrData = data.split(",");
       const [projectID, locationID] = qrData;
 
-      // Fetch the location content using the API function
+      // Fetch location data for the project
       const locationData = (await getLocationsByProjectID(projectID)).find(
         (location) => location.id.toString() === locationID
       );
       console.log("Fetched location data:", locationData);
 
       if (locationData) {
-        // Send tracking data using the API function
+        // Send tracking data using API
         await sendTrackingData(projectID, locationID, locationData.score_points);
         console.log("Tracking data sent successfully");
 
-        // Navigate to home.jsx and pass locationID as a parameter
+        // Navigate to home screen with locationID parameter
         router.push({
           pathname: "/home",
-          params: { locationID }, // Pass locationID to home.jsx
+          params: { locationID },
         });
       } else {
+        // Alert user if location not found
         alert("Location not found");
-        setScanned(false);
+        setScanned(false); // Allow re-scanning
         console.log("Location not found for ID:", locationID);
       }
     } catch (error) {
       console.error("Error handling scanned data:", error);
-      alert("Invalid QR code data");
+      alert("Invalid QR code data"); // Notify user of invalid QR code
     } finally {
-      isProcessingRef.current = false;
+      isProcessingRef.current = false; // Reset processing flag
     }
   };
 
-  // Send tracking data to the tracking endpoint using the API function
+  /**
+   * Sends tracking data to track participant's progress at a specific location.
+   *
+   * @param {string} projectID - ID of the project.
+   * @param {string} locationID - ID of the scanned location.
+   * @param {number} score_points - Points awarded for visiting the location.
+   */
   const sendTrackingData = async (projectID, locationID, score_points) => {
     try {
+      // Retrieve participant's username or use 'guest' if not set
       const participant_username =
         (await AsyncStorage.getItem("username")) || "guest";
-      const username = "s4582256"; // Replace with your actual username
-  
-      // Define tracking data structure
+      const username = "s4582256"; // Replace with actual username
+
+      // Define tracking data structure for API
       const trackingData = {
         project_id: projectID,
         location_id: locationID,
@@ -115,18 +124,18 @@ export default function QrCodeScanner() {
         username: username,
         participant_username: participant_username,
       };
-  
-      // Fetch existing tracking entry for the project, location, and participant
+
+      // Fetch existing tracking entries for location and participant
       const existingTrackingEntries = await getTrackingEntry(
         participant_username,
         projectID,
         locationID
       );
-  
+
       // Only create a new tracking entry if none exists
       if (existingTrackingEntries.length === 0) {
         console.log("Creating new tracking data entry:", trackingData);
-        await createTracking(trackingData);
+        await createTracking(trackingData); // Create new tracking entry
       } else {
         console.log("Tracking entry already exists, skipping creation.");
       }
@@ -137,17 +146,19 @@ export default function QrCodeScanner() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Camera View for scanning QR codes */}
       <CameraView
         style={styles.camera}
         type="front"
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned} // Disable scanner if already scanned
       >
-        {/* Overlay */}
+        {/* Overlay with instructional text */}
         <View style={styles.overlay}>
           <View style={styles.topTextContainer}>
             <Text style={styles.topText}>Find a code to scan</Text>
           </View>
 
+          {/* Centered focus frame for QR code */}
           <View style={styles.middleRow}>
             <View style={styles.sideOverlay} />
             <View style={styles.focusedContainer}>
@@ -164,7 +175,8 @@ export default function QrCodeScanner() {
   );
 }
 
-const overlayColor = "rgba(0,0,0,0.5)"; // Semi-transparent black
+// Styling constants and styles for components
+const overlayColor = "rgba(0,0,0,0.5)"; // Semi-transparent black for overlay
 
 const styles = StyleSheet.create({
   container: {
