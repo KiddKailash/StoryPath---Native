@@ -84,7 +84,7 @@ export default function ProjectsList() {
   const navigateToProject = (projectId) => {
     console.log("Navigating to project:", projectId);
     router.push({
-      pathname: "/home",
+      pathname: "/project",
       params: { projectId },
     });
   };

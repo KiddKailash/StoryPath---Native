@@ -140,12 +140,12 @@ const clearFlags = async (locationID) => {
 };
 
 /**
- * HomeScreen component displays project details and dynamically updates project
+ * Project component displays project details and dynamically updates project
  * score and visited locations based on the user's physical location.
  *
- * @returns {JSX.Element} The rendered HomeScreen component.
+ * @returns {JSX.Element} The rendered Project component.
  */
-export default function HomeScreen() {
+export default function Project() {
   const { projectId } = useLocalSearchParams(); // Retrieve projectId from navigation params
 
   // State variables

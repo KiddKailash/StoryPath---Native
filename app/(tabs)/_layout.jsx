@@ -37,9 +37,9 @@ export default function Layout() {
         headerLeft: () => <HeaderLeftButton />, // Set the header left button
       }}
     >
-      {/* Home Screen Tab */}
+      {/* Project Screen Tab */}
       <Tabs.Screen
-        name="home"
+        name="project"
         options={{
           tabBarIcon: ({ color }) => (
             <Feather name="list" size={24} color={color} /> // Overview icon
