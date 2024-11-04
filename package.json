@@ -1,5 +1,5 @@
 {
-  "name": "story-path-native-v2",
+  "name": "story-path-native",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
