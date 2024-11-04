@@ -12,6 +12,7 @@ web-build/
 -Getting-Started.pdf
 -Tasksheet.pdf
 .gitignore
+package-lock.json
 
 # macOS
 .DS_Store

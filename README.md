@@ -5,27 +5,23 @@ StoryPath - Native is a **location-based experience platform** that allows users
 ---
 
 ## **Key Features**  
-- **User Profiles:**  
-  Participants can set a username and upload a profile photo, which is stored using AsyncStorage.  
-- **Project List:**  
-  Browse and select from a list of published projects to explore.  
-- **Location-Based Gameplay:**  
-  Participants can unlock content by scanning QR codes or entering a project’s location radius.  
-- **Interactive Maps:**  
-  View unlocked locations and the progress made throughout the project.  
-- **Scoring System:**  
-  Track points based on activities completed, such as visiting locations or scanning QR codes.  
-- **Theme Toggle:**  
-  Switch between light and dark modes to match user preferences.  
+- **Project Details & Instructions**: Provides users with an overview of the project they’re participating in.
+- **Location Tracking**: Detects when users are near specific locations, automatically updating their progress.
+- **QR Code Scanning**: Unlocks location-specific content when users scan a QR code at each location.
+- **Score Tracking**: Tracks user scores as they complete locations, with a display of their current score and total possible points.
+- **Dynamic Content Display**: Content for each location is displayed in `WebView` components, and dynamically adjusts to fit content.
+- **Data Persistence**: Stores user progress and proximity data using AsyncStorage, ensuring data persists between sessions.
+- **Pull-to-Refresh**: Users can refresh project data and scores easily via pull-to-refresh.
 
 ---
 
 ## **Technology Stack**  
-- **Frontend Framework:** React Native with Expo Router  
-- **Backend API Integration:** Custom API endpoints for user tracking, projects, and locations  
-- **Storage:** AsyncStorage for managing user data (e.g., profiles)  
-- **UI Components:** React Native components with consistent styling  
-- **Navigation:** Drawer and Tab navigation for seamless user interaction  
+- **React Native**: Main framework for building the mobile application.
+- **Expo**: Used for development and handling geolocation permissions.
+- **React Navigation**: Enables navigation between different screens.
+- **react-native-webview**: Displays HTML content dynamically.
+- **AsyncStorage**: Local storage to persist user data and flags.
+- **Geolib**: Calculates distances between user location and target locations.
 
 ---
 
@@ -41,9 +37,33 @@ StoryPath - Native is a **location-based experience platform** that allows users
 
 ---
 
-## **Setup & Deployment**  
-1. **Install Dependencies:**  
-   Use the following command to install all required dependencies:
+## Setup
+
+### Prerequisites
+
+Ensure you have the following installed:
+
+- **Node.js** (version 14+ recommended)
+- **Expo CLI** (installed globally)
+- **Android Studio or Xcode** for emulator testing (optional)
+
+### Installation
+
+1. **Clone the Repository**:
+
    ```bash
-   npm install
+   git clone https://github.com/KiddKailash/StoryPath---Native
+   cd StoryPath---Native
    ```
+2. **Install Dependencies**:
+    ```bash
+    npm install
+    ```
+3. **Run the Project**:
+    ```bash
+    npm expo start
+    ```
+
+### Running on a Device
+- To run the app on a physical device, download the Expo Go app from the App Store (iOS) or Google Play Store (Android).
+- Scan the QR code displayed in your terminal after running expo start.
