@@ -10,6 +10,7 @@ import {
   Button,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { WebView } from "react-native-webview";
@@ -90,6 +91,54 @@ const injectCSS = (htmlContent) => {
 };
 
 /**
+ * Helper functions to manage proximity and QR scan flags in AsyncStorage
+ */
+const setProximityFlag = async (locationID) => {
+  try {
+    await AsyncStorage.setItem(`proximity_${locationID}`, "true");
+  } catch (error) {
+    console.error(`Error setting proximity flag for location ${locationID}:`, error);
+  }
+};
+
+const checkProximityFlag = async (locationID) => {
+  try {
+    const value = await AsyncStorage.getItem(`proximity_${locationID}`);
+    return value === "true";
+  } catch (error) {
+    console.error(`Error checking proximity flag for location ${locationID}:`, error);
+    return false;
+  }
+};
+
+const setQRScanFlag = async (locationID) => {
+  try {
+    await AsyncStorage.setItem(`qr_scanned_${locationID}`, "true");
+  } catch (error) {
+    console.error(`Error setting QR scan flag for location ${locationID}:`, error);
+  }
+};
+
+const checkQRScanFlag = async (locationID) => {
+  try {
+    const value = await AsyncStorage.getItem(`qr_scanned_${locationID}`);
+    return value === "true";
+  } catch (error) {
+    console.error(`Error checking QR scan flag for location ${locationID}:`, error);
+    return false;
+  }
+};
+
+const clearFlags = async (locationID) => {
+  try {
+    await AsyncStorage.removeItem(`proximity_${locationID}`);
+    await AsyncStorage.removeItem(`qr_scanned_${locationID}`);
+  } catch (error) {
+    console.error(`Error clearing flags for location ${locationID}:`, error);
+  }
+};
+
+/**
  * HomeScreen component displays project details and dynamically updates project
  * score and visited locations based on the user's physical location.
  *
@@ -139,8 +188,6 @@ export default function HomeScreen() {
       setProject(projectData[0]); // Store first project data entry
       setLocations(locationsData); // Store all location data
       setTracking(trackingData); // Store tracking data
-
-      console.log(`Loaded locations: ${JSON.stringify(locations, null, 2)}`)
 
       // Calculate max possible score by summing score_points for each location
       const totalMaxScore = locationsData.reduce(
@@ -287,10 +334,20 @@ export default function HomeScreen() {
             const userCoords = location.coords;
             console.log("Updated user location:", userCoords);
 
-            const radius = 50; // Radius in meters for proximity check
+            const radius = 75; // Radius in meters for proximity check
+
             for (const loc of locations) {
+              // Only process locations with 'Location Entry' or 'Location Entry and QR Code' triggers
+              if (
+                loc.location_trigger !== "Location Entry" &&
+                loc.location_trigger !== "Location Entry and QR Code"
+              ) {
+                continue;
+              }
+
+              // Skip locations already visited
               if (visitedLocations.includes(loc.id)) {
-                continue; // Skip locations already visited
+                continue;
               }
 
               // Parse coordinates from location data
@@ -317,17 +374,33 @@ export default function HomeScreen() {
                 `Distance to ${loc.location_name}: ${distance} meters`
               );
 
-              // If user is within radius, mark location as visited
+              // If user is within radius, handle based on location_trigger
               if (distance <= radius) {
-                console.log(
-                  `User has arrived at location ${loc.location_name}`
-                );
-
-                // Send tracking data to server
-                await sendTrackingData(projectId, loc.id, loc.score_points);
-
-                // Fetch tracking data to refresh visited locations and participant counts
-                await fetchTrackingData();
+                if (loc.location_trigger === "Location Entry") {
+                  // For 'Location Entry', send tracking directly
+                  console.log(
+                    `User has arrived at location ${loc.location_name} (Location Entry)`
+                  );
+                  await sendTrackingData(projectId, loc.id, loc.score_points);
+                  await fetchTrackingData();
+                } else if (loc.location_trigger === "Location Entry and QR Code") {
+                  // For 'Location Entry and QR Code', check if QR code has been scanned
+                  const qrScanned = await checkQRScanFlag(loc.id);
+                  if (qrScanned) {
+                    console.log(
+                      `User has arrived at location ${loc.location_name} (Location Entry and QR Code)`
+                    );
+                    await sendTrackingData(projectId, loc.id, loc.score_points);
+                    await clearFlags(loc.id);
+                    await fetchTrackingData();
+                  } else {
+                    // Set proximity flag
+                    await setProximityFlag(loc.id);
+                    console.log(
+                      `Proximity flag set for location ${loc.location_name} (Location Entry and QR Code)`
+                    );
+                  }
+                }
               }
             }
           }
@@ -390,6 +463,7 @@ export default function HomeScreen() {
       }
     } catch (error) {
       console.error("Error sending tracking data:", error);
+      Alert.alert("Tracking Error", "Failed to record your visit. Please try again.");
     }
   };
 
@@ -530,6 +604,8 @@ export default function HomeScreen() {
 
   /**
    * Renders a loading modal during the initial data fetch.
+   *
+   * @return {JSX.Element} - Loading view.
    */
   const renderLoadingModal = () => (
     <Modal transparent={true} animationType="none">
@@ -564,9 +640,7 @@ export default function HomeScreen() {
     </Modal>
   );
 
-  /**
-   * Main render logic: displays error, loading, or main content accordingly.
-   */
+  // Render based on loading, error, or map display state
   if (error) {
     return renderError();
   }
