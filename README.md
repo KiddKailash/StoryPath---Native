@@ -1,10 +1,11 @@
-# **StoryPath - Native**  
+# **StoryPath - Native**
 
 StoryPath - Native is a **location-based experience platform** that allows users to explore virtual museum exhibits, participate in treasure hunts, and engage in interactive tours. The app serves as a companion to the **StoryPath web platform**, which enables content creators to author and publish these experiences. The React Native app makes it easy for users to discover projects, follow clues, scan QR codes, and track their progress.
 
 ---
 
-## **Key Features**  
+## **Key Features**
+
 - **Project Details & Instructions**: Provides users with an overview of the project they’re participating in.
 - **Location Tracking**: Detects when users are near specific locations, automatically updating their progress.
 - **QR Code Scanning**: Unlocks location-specific content when users scan a QR code at each location.
@@ -15,7 +16,8 @@ StoryPath - Native is a **location-based experience platform** that allows users
 
 ---
 
-## **Technology Stack**  
+## **Technology Stack**
+
 - **React Native**: Main framework for building the mobile application.
 - **Expo**: Used for development and handling geolocation permissions.
 - **React Navigation**: Enables navigation between different screens.
@@ -25,7 +27,8 @@ StoryPath - Native is a **location-based experience platform** that allows users
 
 ---
 
-## **Usage Workflow**  
+## **Usage Workflow**
+
 1. **Profile Setup:**  
    Set up a profile by adding a username and a photo.
 2. **Project Exploration:**  
@@ -55,15 +58,17 @@ Ensure you have the following installed:
    git clone https://github.com/KiddKailash/StoryPath---Native
    cd StoryPath---Native
    ```
+
 2. **Install Dependencies**:
-    ```bash
-    npm install
-    ```
+   ```bash
+   npm install
+   ```
 3. **Run the Project**:
-    ```bash
-    npm expo start
-    ```
+   ```bash
+   npm expo start
+   ```
 
 ### Running on a Device
+
 - To run the app on a physical device, download the Expo Go app from the App Store (iOS) or Google Play Store (Android).
 - Scan the QR code displayed in your terminal after running expo start.
