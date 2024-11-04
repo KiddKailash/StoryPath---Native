@@ -1,125 +1,125 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useFocusEffect } from "@react-navigation/native";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
-import MapView, { Marker, Callout } from "react-native-maps";
+import MapView, { Circle } from "react-native-maps";
+import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams } from "expo-router";
 import * as Location from "expo-location";
-import { getDistance } from "geolib";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import { getLocationsByProjectID } from "../../api/location-crud-commands";
-import {
-  getTrackingByParticipant,
-  getTrackingEntry,
-} from "../../api/tracking-crud-commands";
+import { getTrackingByParticipant } from "../../api/tracking-crud-commands";
+import { Appearance } from "react-native";
 
-/**
- * Map component displays a map with markers for visited locations.
- * If no locations have been visited, it displays only the user's location.
- *
- * @return {JSX.Element} - The rendered Map component.
- */
+// Determine the current color scheme (light or dark)
+const colorScheme = Appearance.getColorScheme();
+
 export default function Map() {
-  const { projectId } = useLocalSearchParams(); // Get project ID from route parameters
-  console.log("Map projectId:", projectId);
+  const { projectId } = useLocalSearchParams(); // Retrieve projectId from navigation params
 
   // State variables
   const [userLocation, setUserLocation] = useState(null);
-  const [locations, setLocations] = useState([]);
   const [visitedLocationsData, setVisitedLocationsData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+
+  /**
+   * Fetches the username from AsyncStorage.
+   * Returns 'guest' if not found.
+   */
+  const fetchUsername = useCallback(async () => {
+    try {
+      const username = (await AsyncStorage.getItem("username")) || "guest";
+      return username;
+    } catch (error) {
+      console.error("Error fetching username:", error);
+      return "guest";
+    }
+  }, []);
 
   /**
    * Fetches user's current location.
    */
   const fetchUserLocation = useCallback(async () => {
     try {
-      // Request location permissions
-      let { status } = await Location.requestForegroundPermissionsAsync();
+      const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         setErrorMsg("Permission to access location was denied");
-        return;
+        return null;
       }
-
-      // Get current location
-      let loc = await Location.getCurrentPositionAsync({});
-      setUserLocation(loc.coords);
-      console.log("User location:", loc.coords);
+      const loc = await Location.getCurrentPositionAsync({});
+      return loc.coords;
     } catch (error) {
       setErrorMsg("Error getting location");
       console.error(error);
+      return null;
     }
   }, []);
 
   /**
-   * Fetches locations associated with the project.
+   * Fetches visited locations based on tracking data.
+   * Utilizes the username to fetch relevant tracking entries.
    */
-  const fetchLocations = useCallback(async () => {
-    try {
-      // Get project locations from API
-      const locationsData = await getLocationsByProjectID(projectId);
-      setLocations(locationsData);
-      console.log("Fetched locations:", locationsData);
-    } catch (error) {
-      console.error("Error fetching locations:", error);
-      setErrorMsg("Error fetching locations");
-    }
-  }, [projectId]);
+  const fetchVisitedLocations = useCallback(
+    async (username) => {
+      try {
+        // Get tracking data for the participant
+        const trackingData = await getTrackingByParticipant(username);
+
+        // Extract visited location IDs from tracking data for the current project
+        const visitedLocationIds = trackingData
+          .filter((entry) => entry.project_id === parseInt(projectId, 10))
+          .map((entry) => entry.location_id);
+
+        if (visitedLocationIds.length === 0) {
+          // No visited locations
+          setVisitedLocationsData([]);
+          return;
+        }
+
+        // Fetch all locations for the project and user
+        const allLocations = await getLocationsByProjectID(projectId);
+
+        // Filter only the visited locations based on location IDs
+        const visitedLocations = allLocations.filter((loc) =>
+          visitedLocationIds.includes(loc.id)
+        );
+
+        setVisitedLocationsData(visitedLocations);
+      } catch (error) {
+        console.error("Error fetching visited locations:", error);
+        setErrorMsg("Error fetching visited locations");
+      }
+    },
+    [projectId]
+  );
 
   /**
-   * Fetches tracking data to identify visited locations.
-   */
-  const fetchTrackingData = useCallback(async () => {
-    try {
-      const participant_username =
-        (await AsyncStorage.getItem("username")) || "guest";
-
-      // Get tracking data for participant
-      const trackingData = await getTrackingByParticipant(participant_username);
-      console.log("Tracking Data:", JSON.stringify(trackingData, null, 2));
-
-      // Filter tracking data for current project
-      const projectTrackingData = trackingData.filter(
-        (entry) => entry.project_id === parseInt(projectId, 10)
-      );
-
-      // Get IDs of visited locations
-      const visitedLocationIds = projectTrackingData.map(
-        (entry) => entry.location_id
-      );
-
-      // Filter to get details of visited locations
-      const visitedData = locations.filter((loc) =>
-        visitedLocationIds.includes(loc.id)
-      );
-      setVisitedLocationsData(visitedData);
-    } catch (error) {
-      console.error("Error fetching tracking data:", error);
-      setErrorMsg("Error fetching tracking data");
-    }
-  }, [projectId, locations]);
-
-  /**
-   * Fetches all required data for the map view.
+   * Fetches user location and visited locations concurrently.
    */
   const fetchData = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      await fetchUserLocation(); // Get user's location
-      await fetchLocations(); // Get locations associated with the project
+      const [username, coords] = await Promise.all([
+        fetchUsername(),
+        fetchUserLocation(),
+      ]);
+
+      if (coords) {
+        setUserLocation(coords);
+      }
+
+      await fetchVisitedLocations(username);
     } catch (error) {
       console.error("Error during data fetching:", error);
       setErrorMsg("Error fetching data");
     } finally {
-      setLoading(false); // Stop loading indicator
+      setLoading(false);
     }
-  }, [fetchUserLocation, fetchLocations]);
+  }, [fetchUsername, fetchUserLocation, fetchVisitedLocations]);
 
   /**
-   * Fetches data when the screen is focused or when pull-to-refresh is used.
+   * useFocusEffect ensures that fetchData is called each time the screen is focused.
+   * This keeps the data up-to-date when returning to the screen.
    */
   useFocusEffect(
     useCallback(() => {
@@ -128,24 +128,8 @@ export default function Map() {
   );
 
   /**
-   * Initial data fetch when component mounts.
-   */
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  /**
-   * Refresh handler for pull-to-refresh.
-   */
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchData().then(() => {
-      setRefreshing(false);
-    });
-  }, [fetchData]);
-
-  /**
    * Watches user's location to update visited locations when nearby.
+   * This runs independently of the initial loading state.
    */
   useEffect(() => {
     let locationSubscription = null;
@@ -160,7 +144,7 @@ export default function Map() {
 
         locationSubscription = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.High,
+            accuracy: Location.Accuracy.High, // Set high accuracy
             distanceInterval: 10, // Update every 10 meters
             timeInterval: 5000, // Update every 5 seconds
           },
@@ -168,43 +152,40 @@ export default function Map() {
             const userCoords = location.coords;
             console.log("Updated user location:", userCoords);
 
-            const radius = 50; // Radius in meters for proximity check
-            for (const loc of locations) {
-              if (visitedLocationsData.some((vLoc) => vLoc.id === loc.id)) {
-                continue; // Skip if location has already been visited
-              }
+            // Optional: Update user location state if you want real-time tracking
+            setUserLocation(userCoords);
 
-              // Parse coordinates from location data
-              const [latStr, lonStr] = loc.location_position
-                .replace("(", "")
-                .replace(")", "")
-                .split(",")
-                .map((coord) => coord.trim());
-              const locationCoords = {
-                latitude: parseFloat(latStr),
-                longitude: parseFloat(lonStr),
-              };
+            // Fetch username for tracking updates
+            const username = await fetchUsername();
 
-              // Calculate distance to the location
-              const distance = getDistance(
-                { latitude: userCoords.latitude, longitude: userCoords.longitude },
-                locationCoords
+            try {
+              // Get tracking data
+              const trackingData = await getTrackingByParticipant(username);
+
+              // Extract visited location IDs for the current project
+              const visitedLocationIds = trackingData
+                .filter((entry) => entry.project_id === parseInt(projectId, 10))
+                .map((entry) => entry.location_id);
+
+              // Fetch all locations for the project and user
+              const allLocations = await getLocationsByProjectID(projectId);
+
+              // Identify newly visited locations (if any)
+              const newlyVisitedLocations = allLocations.filter(
+                (loc) =>
+                  visitedLocationIds.includes(loc.id) &&
+                  !visitedLocationsData.some((vLoc) => vLoc.id === loc.id)
               );
 
-              console.log(
-                `Distance to ${loc.location_name}: ${distance} meters`
-              );
-
-              // If user is within radius, mark location as visited
-              if (distance <= radius) {
-                console.log(`User has arrived at location ${loc.location_name}`);
-
-                // Send tracking data to server
-                await sendTrackingData(projectId, loc.id, loc.score_points);
-
-                // Fetch tracking data to refresh visited locations
-                await fetchTrackingData();
+              if (newlyVisitedLocations.length > 0) {
+                // Update visited locations data
+                setVisitedLocationsData((prevData) => [
+                  ...prevData,
+                  ...newlyVisitedLocations,
+                ]);
               }
+            } catch (error) {
+              console.error("Error updating visited locations:", error);
             }
           }
         );
@@ -222,51 +203,27 @@ export default function Map() {
         locationSubscription.remove();
       }
     };
-  }, [locations, visitedLocationsData, projectId, fetchTrackingData]);
+  }, [projectId, fetchUsername, visitedLocationsData]);
 
   /**
-   * Sends tracking data for a visited location.
-   *
-   * @param {string} projectID - The project ID.
-   * @param {number} locationID - The location ID.
-   * @param {number} score_points - The score points for the location.
+   * Determines the initial region for the map based on user location.
    */
-  const sendTrackingData = async (projectID, locationID, score_points) => {
-    try {
-      const participant_username =
-        (await AsyncStorage.getItem("username")) || "guest";
-      const username = "s4582256"; // Replace with actual username
-
-      // Ensure IDs are integers for API call
-      const projectIDInt = parseInt(projectID, 10);
-      const locationIDInt = parseInt(locationID, 10);
-
-      // Construct tracking data payload
-      const trackingData = {
-        project_id: projectIDInt,
-        location_id: locationIDInt,
-        points: score_points,
-        username: username,
-        participant_username: participant_username,
+  const getInitialRegion = () => {
+    if (userLocation) {
+      return {
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
       };
-
-      // Check for existing tracking entry to avoid duplicates
-      const existingTrackingEntries = await getTrackingEntry(
-        participant_username,
-        projectIDInt,
-        locationIDInt
-      );
-
-      // Create tracking entry if it doesn't exist
-      if (existingTrackingEntries.length === 0) {
-        console.log("Creating new tracking data entry:", trackingData);
-        await createTracking(trackingData);
-      } else {
-        console.log("Tracking entry already exists, skipping creation.");
-      }
-    } catch (error) {
-      console.error("Error sending tracking data:", error);
     }
+    // Default region if user location is unavailable
+    return {
+      latitude: -27.5263381,
+      longitude: 153.0954163,
+      latitudeDelta: 0.05,
+      longitudeDelta: 0.05,
+    };
   };
 
   /**
@@ -293,74 +250,40 @@ export default function Map() {
   );
 
   /**
-   * Sets initial region of the map based on user location.
-   */
-  const getInitialRegion = () => {
-    if (userLocation) {
-      return {
-        latitude: userLocation.latitude,
-        longitude: userLocation.longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
-      };
-    }
-    // Default region if user location is unavailable
-    return {
-      latitude: -27.5263381,
-      longitude: 153.0954163,
-      latitudeDelta: 0.05,
-      longitudeDelta: 0.05,
-    };
-  };
-
-  /**
-   * Renders the map with markers for user's and visited locations.
+   * Renders the map with circles for visited locations.
    */
   const renderMap = () => (
-    <View style={styles.container}>
-      <MapView style={styles.map} initialRegion={getInitialRegion()}>
-        {/* Marker for user's current location */}
-        <Marker
-          coordinate={{
-            latitude: userLocation.latitude,
-            longitude: userLocation.longitude,
-          }}
-          title="Your Location"
-          description="This is where you are"
-          pinColor="blue"
-        />
+    <MapView
+      style={styles.map}
+      initialRegion={getInitialRegion()}
+      showsUserLocation={true} // Display default user location marker
+      showsMyLocationButton={true} // Optional: show the "my location" button
+      loadingEnabled={true} // Show loading indicator for map tiles
+    >
+      {/* Circles for visited locations */}
+      {visitedLocationsData.map((loc) => {
+        const [latitude, longitude] = loc.location_position
+          .replace("(", "")
+          .replace(")", "")
+          .split(",")
+          .map((coord) => parseFloat(coord.trim()));
 
-        {/* Markers for visited locations */}
-        {visitedLocationsData.length > 0 &&
-          visitedLocationsData.map((loc) => {
-            const [latitude, longitude] = loc.location_position
-              .replace("(", "")
-              .replace(")", "")
-              .split(",")
-              .map((coord) => parseFloat(coord.trim()));
-
-            return (
-              <Marker
-                key={loc.id}
-                coordinate={{ latitude, longitude }}
-                title={loc.location_name}
-                description={loc.clue || "No clue provided"}
-                pinColor="green"
-              >
-                {/* Callout with location details */}
-                <Callout>
-                  <View style={styles.calloutContainer}>
-                    <Text style={styles.calloutTitle}>{loc.location_name}</Text>
-                    <Text style={styles.calloutDescription}>
-                      {loc.clue || "No clue provided"}
-                    </Text>
-                  </View>
-                </Callout>
-              </Marker>
-            );
-          })}
-      </MapView>
-    </View>
+        return (
+          <Circle
+            key={loc.id}
+            center={{ latitude, longitude }}
+            radius={75}
+            strokeWidth={3}
+            strokeColor="#A42DE8"
+            fillColor={
+              colorScheme === "dark"
+                ? "rgba(128,0,128,0.5)"
+                : "rgba(210,169,210,0.5)"
+            }
+          />
+        );
+      })}
+    </MapView>
   );
 
   // Render based on loading, error, or map display state
@@ -368,11 +291,11 @@ export default function Map() {
     return renderError();
   }
 
-  if (!userLocation || loading) {
+  if (loading || !userLocation) {
     return renderLoading();
   }
 
-  return renderMap();
+  return <View style={styles.container}>{renderMap()}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -398,17 +321,5 @@ const styles = StyleSheet.create({
   map: {
     width: "100%",
     height: "100%",
-  },
-  calloutContainer: {
-    width: 200,
-  },
-  calloutTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  calloutDescription: {
-    fontSize: 14,
-    color: "#555",
   },
 });

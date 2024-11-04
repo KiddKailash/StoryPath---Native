@@ -98,11 +98,12 @@ const injectCSS = (htmlContent) => {
 export default function HomeScreen() {
   const { projectId } = useLocalSearchParams(); // Retrieve projectId from navigation params
 
+  // State variables
   const [project, setProject] = useState(null); // Holds the project data
   const [locations, setLocations] = useState([]); // Stores all project locations
   const [tracking, setTracking] = useState([]); // Tracks user's progress through project
-  const [loading, setLoading] = useState(true); // Controls loading state
-  const [refreshing, setRefreshing] = useState(false); // Manages refresh state
+  const [loading, setLoading] = useState(true); // Controls initial loading state
+  const [refreshing, setRefreshing] = useState(false); // Manages pull-to-refresh state
   const [error, setError] = useState(null); // Holds error messages if data fetch fails
   const [visitedLocations, setVisitedLocations] = useState([]); // List of visited location IDs
   const [visitedLocationsData, setVisitedLocationsData] = useState([]); // Details of visited locations
@@ -113,11 +114,15 @@ export default function HomeScreen() {
   const [modalVisible, setModalVisible] = useState(false); // Manages modal visibility
   const [locationParticipantCounts, setLocationParticipantCounts] = useState(
     {}
-  );
+  ); // Tracks the number of participants who have 'unlocked' a location
 
-  // Function to fetch data from the API and AsyncStorage
-  const fetchData = useCallback(async () => {
+  /**
+   * Function to fetch initial data: project details, locations, and tracking data.
+   * This sets the initial loading state and handles errors.
+   */
+  const fetchInitialData = useCallback(async () => {
     setLoading(true); // Begin loading state
+    setError(null); // Reset error state
     try {
       const participant_username =
         (await AsyncStorage.getItem("username")) || "guest"; // Retrieve username or use "guest"
@@ -134,6 +139,8 @@ export default function HomeScreen() {
       setProject(projectData[0]); // Store first project data entry
       setLocations(locationsData); // Store all location data
       setTracking(trackingData); // Store tracking data
+
+      console.log(`Loaded locations: ${JSON.stringify(locations, null, 2)}`)
 
       // Calculate max possible score by summing score_points for each location
       const totalMaxScore = locationsData.reduce(
@@ -181,106 +188,172 @@ export default function HomeScreen() {
       setError(err.message || "Error fetching data."); // Set error message
     } finally {
       setLoading(false); // End loading state
-      setRefreshing(false); // End refreshing state
+      setRefreshing(false); // End refreshing state if it was a refresh
     }
   }, [projectId]);
 
-  // Re-fetch data when the screen is focused, ensuring fresh data on return
+  /**
+   * Function to fetch only tracking data and participant counts.
+   * This is used during location updates to refresh visited locations without affecting the loading state.
+   */
+  const fetchTrackingData = useCallback(async () => {
+    try {
+      const participant_username =
+        (await AsyncStorage.getItem("username")) || "guest";
+
+      // Get tracking data for participant
+      const trackingData = await getTrackingByParticipant(participant_username);
+      console.log("Tracking Data:", JSON.stringify(trackingData, null, 2));
+
+      // Filter tracking data for current project
+      const projectTrackingData = trackingData.filter(
+        (entry) => entry.project_id === parseInt(projectId, 10)
+      );
+
+      // Get IDs of visited locations
+      const visitedLocationIds = projectTrackingData.map(
+        (entry) => entry.location_id
+      );
+      setVisitedLocations(visitedLocationIds); // Update visited location IDs
+
+      // Update visitedLocationsData with the latest tracking data
+      const visitedData = locations.filter((loc) =>
+        visitedLocationIds.includes(loc.id)
+      );
+      setVisitedLocationsData(visitedData);
+
+      // Fetch updated participant counts for each location
+      const counts = { ...locationParticipantCounts };
+      await Promise.all(
+        locations.map(async (location) => {
+          const count = await getParticipantCountByLocation(location.id);
+          counts[location.id] = count;
+        })
+      );
+      setLocationParticipantCounts(counts);
+    } catch (error) {
+      console.error("Error fetching tracking data:", error);
+      // Optionally, you can set an error state or handle it as needed
+    }
+  }, [projectId, locations, locationParticipantCounts]);
+
+  /**
+   * useFocusEffect ensures that fetchInitialData is called each time the screen is focused.
+   * This keeps the data up-to-date when returning to the screen.
+   */
   useFocusEffect(
     useCallback(() => {
-      fetchData(); // Fetch data on focus
-    }, [fetchData])
+      fetchInitialData(); // Fetch initial data on focus
+    }, [fetchInitialData])
   );
 
-  // Initial data fetch on component mount
+  /**
+   * Initial data fetch when component mounts.
+   */
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchInitialData();
+  }, [fetchInitialData]);
 
-  // Handle pull-to-refresh event to reload data
+  /**
+   * Refresh handler for pull-to-refresh.
+   */
   const onRefresh = useCallback(() => {
-    setRefreshing(true); // Set refreshing state
-    fetchData(); // Re-fetch data
-  }, [fetchData]);
+    setRefreshing(true);
+    fetchInitialData(); // Re-fetch initial data on refresh
+  }, [fetchInitialData]);
 
-  // Track user location in real-time and update visited locations
+  /**
+   * Watches user's location to update visited locations when nearby.
+   * This runs independently of the initial loading state.
+   */
   useEffect(() => {
     let locationSubscription = null;
-    const checkLocationPermissionAndStartTracking = async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setError("Permission to access location was denied");
-        return;
-      }
 
-      // Begin watching position changes if location access is granted
-      locationSubscription = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High, // Set high accuracy
-          distanceInterval: 10, // Trigger update every 10 meters
-          timeInterval: 5000, // Trigger update every 5 seconds
-        },
-        (location) => {
-          handleLocationUpdate(location.coords); // Process location update
+    const watchUserLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") {
+          setError("Permission to access location was denied");
+          return;
         }
-      );
+
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High, // Set high accuracy
+            distanceInterval: 10, // Update every 10 meters
+            timeInterval: 5000, // Update every 5 seconds
+          },
+          async (location) => {
+            const userCoords = location.coords;
+            console.log("Updated user location:", userCoords);
+
+            const radius = 50; // Radius in meters for proximity check
+            for (const loc of locations) {
+              if (visitedLocations.includes(loc.id)) {
+                continue; // Skip locations already visited
+              }
+
+              // Parse coordinates from location data
+              const [latStr, lonStr] = loc.location_position
+                .replace("(", "")
+                .replace(")", "")
+                .split(",")
+                .map((coord) => coord.trim());
+              const locationCoords = {
+                latitude: parseFloat(latStr),
+                longitude: parseFloat(lonStr),
+              };
+
+              // Calculate distance between user and location
+              const distance = getDistance(
+                {
+                  latitude: userCoords.latitude,
+                  longitude: userCoords.longitude,
+                },
+                locationCoords
+              );
+
+              console.log(
+                `Distance to ${loc.location_name}: ${distance} meters`
+              );
+
+              // If user is within radius, mark location as visited
+              if (distance <= radius) {
+                console.log(
+                  `User has arrived at location ${loc.location_name}`
+                );
+
+                // Send tracking data to server
+                await sendTrackingData(projectId, loc.id, loc.score_points);
+
+                // Fetch tracking data to refresh visited locations and participant counts
+                await fetchTrackingData();
+              }
+            }
+          }
+        );
+      } catch (error) {
+        console.error("Error watching location:", error);
+        setError("Error watching location");
+      }
     };
 
-    checkLocationPermissionAndStartTracking();
+    watchUserLocation();
 
-    // Remove location tracking when component is unmounted
+    // Cleanup location subscription when component unmounts
     return () => {
       if (locationSubscription) {
         locationSubscription.remove();
       }
     };
-  }, [locations, visitedLocations]);
+  }, [locations, visitedLocations, projectId, fetchTrackingData]);
 
   /**
-   * Handle updates to the user's location. Check if the user is within a defined
-   * radius of any location and mark the location as visited if they are.
+   * Sends tracking data for a visited location.
    *
-   * @param {Object} userCoords - The user's current coordinates.
-   */
-  const handleLocationUpdate = async (userCoords) => {
-    const radius = 50; // Define radius in meters to determine proximity
-    for (const loc of locations) {
-      if (visitedLocations.includes(loc.id)) {
-        continue; // Skip locations already visited
-      }
-
-      // Parse latitude and longitude from location string
-      const [latStr, lonStr] = loc.location_position
-        .replace("(", "")
-        .replace(")", "")
-        .split(",");
-      const locationCoords = {
-        latitude: parseFloat(latStr),
-        longitude: parseFloat(lonStr),
-      };
-
-      // Calculate distance between user and location
-      const distance = getDistance(
-        { latitude: userCoords.latitude, longitude: userCoords.longitude },
-        locationCoords
-      );
-
-      // If within radius, mark location as visited
-      if (distance <= radius) {
-        await sendTrackingData(projectId, loc.id, loc.score_points); // Send tracking data to server
-        await fetchData(); // Refresh data to update score and visited locations
-        setCurrentLocationContent(loc.location_content); // Set content for modal display
-        setModalVisible(true); // Open modal to show location content
-      }
-    }
-  };
-
-  /**
-   * Send tracking data for a specific location to track the user's progress.
-   *
-   * @param {number} projectID - ID of the project.
-   * @param {number} locationID - ID of the location.
-   * @param {number} score_points - Points scored for visiting the location.
+   * @param {string} projectID - The project ID.
+   * @param {number} locationID - The location ID.
+   * @param {number} score_points - The score points for the location.
    */
   const sendTrackingData = async (projectID, locationID, score_points) => {
     try {
@@ -288,9 +361,11 @@ export default function HomeScreen() {
         (await AsyncStorage.getItem("username")) || "guest";
       const username = "s4582256"; // Replace with actual username
 
-      const projectIDInt = parseInt(projectID, 10); // Ensure ID is integer
-      const locationIDInt = parseInt(locationID, 10); // Ensure ID is integer
+      // Ensure IDs are integers for API call
+      const projectIDInt = parseInt(projectID, 10);
+      const locationIDInt = parseInt(locationID, 10);
 
+      // Construct tracking data payload
       const trackingData = {
         project_id: projectIDInt,
         location_id: locationIDInt,
@@ -299,39 +374,66 @@ export default function HomeScreen() {
         participant_username: participant_username,
       };
 
-      // Check if tracking entry exists; only create new entry if none found
+      // Check for existing tracking entry to avoid duplicates
       const existingTrackingEntries = await getTrackingEntry(
         participant_username,
         projectIDInt,
         locationIDInt
       );
 
+      // Create tracking entry if it doesn't exist
       if (existingTrackingEntries.length === 0) {
-        await createTracking(trackingData); // Create tracking entry
+        console.log("Creating new tracking data entry:", trackingData);
+        await createTracking(trackingData);
+      } else {
+        console.log("Tracking entry already exists, skipping creation.");
       }
     } catch (error) {
       console.error("Error sending tracking data:", error);
     }
   };
 
+  /**
+   * Handles the press event on a visited location to display its content.
+   *
+   * @param {string} content - The HTML content of the location.
+   */
   const handleLocationPress = (content) => {
     setSelectedLocationContent(content); // Set content for selected location
     setModalVisible(true); // Open modal to show content
   };
 
+  /**
+   * Closes the content modal and clears related states.
+   */
   const closeModal = () => {
     setModalVisible(false); // Close modal
     setCurrentLocationContent(""); // Clear current location content
     setSelectedLocationContent(null); // Clear selected location content
   };
 
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
-      </View>
-    );
-  }
+  /**
+   * Renders error message if any error occurs.
+   *
+   * @return {JSX.Element} - Error message view.
+   */
+  const renderError = () => (
+    <View style={styles.errorContainer}>
+      <Text style={styles.errorText}>{error}</Text>
+    </View>
+  );
+
+  /**
+   * Renders a loading indicator during the initial data fetch.
+   *
+   * @return {JSX.Element} - Loading view.
+   */
+  const renderLoading = () => (
+    <View style={styles.loaderContainer}>
+      <ActivityIndicator size="large" color="#0000ff" />
+      <Text>Loading...</Text>
+    </View>
+  );
 
   /**
    * Renders the content for the homescreen based on the project's settings.
@@ -364,99 +466,127 @@ export default function HomeScreen() {
     return null;
   };
 
+  /**
+   * Renders the main content of the HomeScreen, including project info, score, and visited locations.
+   */
+  const renderMainContent = () => (
+    <ScrollView
+      contentContainerStyle={styles.scrollContainer}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      {/* Project Information */}
+      <View style={styles.projectInfo}>
+        <Text style={styles.projectTitle}>
+          {project?.title || "Untitled Project"}
+        </Text>
+        <Text style={styles.projectInstructions}>
+          {project?.instructions || "No instructions provided."}
+        </Text>
+      </View>
+
+      {/* Conditional Homescreen Content */}
+      {renderHomescreenContent()}
+
+      {/* Score and Locations Visited */}
+      <View style={styles.scoreContainer}>
+        <Text style={styles.scoreText}>
+          Score: {totalScore}/{maxScore}
+        </Text>
+        <Text style={styles.scoreText}>
+          Locations Visited: {visitedLocations.length}/{locations.length}
+        </Text>
+      </View>
+
+      {/* Display location_content for each visited location */}
+      {visitedLocationsData.length > 0 && (
+        <View>
+          <Text style={styles.visitedLocationsTitle}>Visited Locations</Text>
+          {visitedLocationsData.map((loc) => (
+            <TouchableOpacity
+              key={loc.id}
+              onPress={() => handleLocationPress(loc.location_content)}
+            >
+              <View style={styles.webViewContainer}>
+                <Text style={styles.locationName}>{loc.location_name}</Text>
+                <Text>
+                  Unlocked by {locationParticipantCounts[loc.id] || 0} user(s)
+                </Text>
+                <WebView
+                  originWhitelist={["*"]}
+                  source={{ html: injectCSS(loc.location_content) }}
+                  style={styles.webView}
+                  scrollEnabled={false}
+                  pointerEvents="none"
+                />
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+    </ScrollView>
+  );
+
+  /**
+   * Renders a loading modal during the initial data fetch.
+   */
+  const renderLoadingModal = () => (
+    <Modal transparent={true} animationType="none">
+      <View style={styles.loadingContainer}>
+        <View style={styles.loadingWrapper}>
+          <ActivityIndicator size="large" color="#ffffff" />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  /**
+   * Renders the content modal displaying location details.
+   */
+  const renderContentModal = () => (
+    <Modal
+      visible={modalVisible}
+      animationType="slide"
+      onRequestClose={closeModal}
+    >
+      <SafeAreaView style={{ flex: 1 }}>
+        <WebView
+          originWhitelist={["*"]}
+          source={{
+            html: injectCSS(selectedLocationContent || currentLocationContent),
+          }}
+          style={{ flex: 1 }}
+        />
+        <Button title="Close" onPress={closeModal} />
+      </SafeAreaView>
+    </Modal>
+  );
+
+  /**
+   * Main render logic: displays error, loading, or main content accordingly.
+   */
+  if (error) {
+    return renderError();
+  }
+
+  if (loading) {
+    return renderLoading(); // Show loading modal only during initial data fetch
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Main Content */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* Project Information */}
-        <View style={styles.projectInfo}>
-          <Text style={styles.projectTitle}>
-            {project?.title || "Untitled Project"}
-          </Text>
-          <Text style={styles.projectInstructions}>
-            {project?.instructions || "No instructions provided."}
-          </Text>
-        </View>
-
-        {/* Conditional Homescreen Content */}
-        {renderHomescreenContent()}
-
-        {/* Score and Locations Visited */}
-        <View style={styles.scoreContainer}>
-          <Text style={styles.scoreText}>
-            Score: {totalScore}/{maxScore}
-          </Text>
-          <Text style={styles.scoreText}>
-            Locations Visited: {visitedLocations.length}/{locations.length}
-          </Text>
-        </View>
-
-        {/* Display location_content for each visited location */}
-        {visitedLocationsData.length > 0 && (
-          <View>
-            <Text style={styles.visitedLocationsTitle}>Visited Locations</Text>
-            {visitedLocationsData.map((loc) => (
-              <TouchableOpacity
-                key={loc.id}
-                onPress={() => handleLocationPress(loc.location_content)}
-              >
-                <View style={styles.webViewContainer}>
-                  <Text style={styles.locationName}>{loc.location_name}</Text>
-                  <Text>
-                    Unlocked by {locationParticipantCounts[loc.id] || 0} user(s)
-                  </Text>
-                  <WebView
-                    originWhitelist={["*"]}
-                    source={{ html: injectCSS(loc.location_content) }}
-                    style={styles.webView}
-                    scrollEnabled={false}
-                    pointerEvents="none"
-                  />
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+      {renderMainContent()}
 
       {/* Loading Modal */}
-      {loading && (
-        <Modal transparent={true} animationType="none">
-          <View style={styles.loadingContainer}>
-            <View style={styles.loadingWrapper}>
-              <ActivityIndicator size="large" color="#ffffff" />
-              <Text style={styles.loadingText}>Loading...</Text>
-            </View>
-          </View>
-        </Modal>
-      )}
+      {loading && renderLoadingModal()}
 
       {/* Content Modal */}
-      {modalVisible && (currentLocationContent || selectedLocationContent) && (
-        <Modal
-          visible={modalVisible}
-          animationType="slide"
-          onRequestClose={closeModal}
-        >
-          <SafeAreaView style={{ flex: 1 }}>
-            <WebView
-              originWhitelist={["*"]}
-              source={{
-                html: injectCSS(
-                  selectedLocationContent || currentLocationContent
-                ),
-              }}
-              style={{ flex: 1 }}
-            />
-            <Button title="Close" onPress={closeModal} />
-          </SafeAreaView>
-        </Modal>
-      )}
+      {modalVisible &&
+        (currentLocationContent || selectedLocationContent) &&
+        renderContentModal()}
     </SafeAreaView>
   );
 }
@@ -521,9 +651,27 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     borderRadius: 8,
     overflow: "hidden",
+    padding: 10, // Optional: add padding inside the container
+    backgroundColor: "#f9f9f9", // Optional: background color for better visibility
   },
   webView: {
     height: 200,
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  errorText: {
+    color: "red",
+    fontSize: 16,
+    textAlign: "center",
   },
   loadingContainer: {
     flex: 1,
@@ -545,15 +693,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#fff",
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 16,
+  calloutContainer: {
+    width: 200,
   },
-  errorText: {
-    color: "red",
+  calloutTitle: {
     fontSize: 16,
-    textAlign: "center",
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+  calloutDescription: {
+    fontSize: 14,
+    color: "#555",
   },
 });
